@@ -40,6 +40,22 @@ button[data-testid="collapsedControl"],
 </style>
 """, unsafe_allow_html=True)
 
+# ============================================================
+# 先生用 PIN 認証（アプリ起動時に1回だけ）
+# ============================================================
+if not st.session_state.get("teacher_auth", False):
+    st.title("🔑 EBOL英会話 ログイン")
+    st.write("")
+    pin = st.text_input("PINコードを入力してください", type="password", max_chars=8)
+    if st.button("ログイン", type="primary", use_container_width=True):
+        TEACHER_PIN = st.secrets.get("TEACHER_PIN", "0000")
+        if pin == TEACHER_PIN:
+            st.session_state.teacher_auth = True
+            st.rerun()
+        else:
+            st.error("PINが違います")
+    st.stop()
+
 # 管理者ページ：認証済みなら実績リスト、未認証ならログイン画面
 if st.session_state.get("admin_auth", False):
     admin_page = st.Page("pages/admin_main.py",  title="管理者用", icon="🔑")
