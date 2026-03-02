@@ -27,6 +27,8 @@ INSTRUCTOR_COLORS = {
     'サラ':      {'header': '#6ee7b7', 'cell': '#d1fae5'},   # 緑
     'ジェンマリ': {'header': '#fdba74', 'cell': '#ffedd5'},  # オレンジ
     '星良':      {'header': '#c4b5fd', 'cell': '#ede9fe'},   # 紫
+    '春葉':      {'header': '#f9a8d4', 'cell': '#fce7f3'},   # ピンク
+    'ミスコウ':  {'header': '#fde68a', 'cell': '#fef9c3'},   # 黄
 }
 
 STATUS_CONFIG = {
