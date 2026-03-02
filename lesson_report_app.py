@@ -48,8 +48,8 @@ if not st.session_state.get("teacher_auth", False):
     st.write("")
     pin = st.text_input("PINコードを入力してください", type="password", max_chars=4)
     if st.button("ログイン", type="primary", use_container_width=True):
-        TEACHER_PIN = st.secrets.get("TEACHER_PIN", "0000")
-        if pin == TEACHER_PIN:
+        TEACHER_PIN = str(st.secrets.get("TEACHER_PIN", "0000")).strip()
+        if pin.strip() == TEACHER_PIN:
             st.session_state.teacher_auth = True
             st.rerun()
         else:
