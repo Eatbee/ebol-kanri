@@ -1,0 +1,34 @@
+# Streamlit の認証情報（GitHub にアップしてはいけない）
+.streamlit/secrets.toml
+
+# ローカルデータファイル（Supabase に移行済み）
+records.json
+schedules.json
+locks.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+env/
+venv/
+.env
+
+# macOS
+.DS_Store
+*.command
+
+# Claude Code 設定（不要）
+.claude/
+
+# ローカル作業ファイル（Webアプリに不要）
+*.pages
+*.numbers
+*.xlsx
+*.pdf
+請求書/
+英会話_管理統合.xlsx
+
+# その他
+*.log
