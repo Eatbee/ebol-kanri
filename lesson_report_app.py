@@ -46,7 +46,7 @@ button[data-testid="collapsedControl"],
 if not st.session_state.get("teacher_auth", False):
     st.title("🔑 EBOL英会話 ログイン")
     st.write("")
-    pin = st.text_input("PINコードを入力してください", type="password", max_chars=8)
+    pin = st.text_input("PINコードを入力してください", type="password", max_chars=4)
     if st.button("ログイン", type="primary", use_container_width=True):
         TEACHER_PIN = st.secrets.get("TEACHER_PIN", "0000")
         if pin == TEACHER_PIN:
