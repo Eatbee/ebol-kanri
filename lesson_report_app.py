@@ -13,32 +13,7 @@ st.set_page_config(
     page_title="英会話管理",
     page_icon="📚",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
-
-# サイドバーを常時表示・折りたたみ不可にする
-st.markdown("""
-<style>
-/* サイドバー本体を常時表示 */
-section[data-testid="stSidebar"] {
-    display: block !important;
-    visibility: visible !important;
-    min-width: 240px !important;
-    transform: none !important;
-}
-/* 折りたたみボタン（<<）を非表示 */
-button[data-testid="collapsedControl"],
-[data-testid="collapsedControl"],
-[data-testid="stSidebarHeader"] button,
-[data-testid="stSidebarCollapseButton"] {
-    display: none !important;
-}
-/* Streamlitのハンバーガーメニューを非表示 */
-[data-testid="stToolbar"] {
-    display: none !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # ============================================================
 # 先生用 PIN 認証（アプリ起動時に1回だけ）
@@ -56,12 +31,15 @@ if not st.session_state.get("teacher_auth", False):
             st.error("PINが違います")
     st.stop()
 
-# 管理者ページ：認証済みなら実績リスト、未認証ならログイン画面
+# 管理者ページ
 if st.session_state.get("admin_auth", False):
     admin_page = st.Page("pages/admin_main.py",  title="管理者用", icon="🔑")
+    admin_path = "pages/admin_main.py"
 else:
     admin_page = st.Page("pages/admin_login.py", title="管理者用", icon="🔑")
+    admin_path = "pages/admin_login.py"
 
+# サイドバーなし・ページ上部にナビゲーション
 pg = st.navigation(
     {
         "📝 登録フォーム": [
@@ -70,11 +48,26 @@ pg = st.navigation(
         ],
         "📋 一覧表": [
             admin_page,
-            st.Page("pages/02_実績一覧.py",        title="レッスン実績",     icon="💬"),
-            st.Page("pages/04_月次一覧表.py",       title="月次一覧表",       icon="📊"),
+            st.Page("pages/02_実績一覧.py",  title="レッスン実績", icon="💬"),
+            st.Page("pages/04_月次一覧表.py", title="月次一覧表",   icon="📊"),
         ],
     },
-    position="sidebar",
-    expanded=True,
+    position="hidden",  # サイドバーを使わない
 )
+
+# ページ上部ナビゲーションバー（スマホ・PC共通）
+c1, c2, c3, c4, c5 = st.columns(5)
+with c1:
+    st.page_link("pages/01_先生_報告フォーム.py", label="📝 報告フォーム", use_container_width=True)
+with c2:
+    st.page_link("pages/03_予約管理.py", label="📅 予約管理", use_container_width=True)
+with c3:
+    st.page_link(admin_path, label="🔑 管理者用", use_container_width=True)
+with c4:
+    st.page_link("pages/02_実績一覧.py", label="💬 レッスン実績", use_container_width=True)
+with c5:
+    st.page_link("pages/04_月次一覧表.py", label="📊 月次一覧表", use_container_width=True)
+
+st.divider()
+
 pg.run()
