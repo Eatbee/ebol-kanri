@@ -72,7 +72,9 @@ for month in months:
         icon     = "✅" if rec['status'] == '実施済' else "❌"
         tstr     = f" {rec['time']}" if rec.get('time') else ""
         src_icon = "📝" if rec.get('source') == 'form' else "💬"
-        label    = f"{icon} **{rec['date']}（{rec['weekday']}）{tstr}**　{rec['instructor']} / {rec['student']}　{src_icon}"
+        comment  = rec.get('comment', '')
+        comment_preview = f"　💬 {comment[:40]}{'…' if len(comment) > 40 else ''}" if comment else ""
+        label    = f"{icon} **{rec['date']}（{rec['weekday']}）{tstr}**　{rec['instructor']} / {rec['student']}　{src_icon}{comment_preview}"
 
         with st.expander(label, expanded=False):
             cl, cr = st.columns([1, 3])
@@ -87,7 +89,6 @@ for month in months:
                 else:
                     st.warning("🔒 ロック中のため変更できません")
             with cr:
-                comment = rec.get('comment', '')
                 if comment:
                     st.markdown("**コメント**")
                     st.text_area("", value=comment, height=120, disabled=True,
