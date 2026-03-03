@@ -108,18 +108,12 @@ if st.button("📤 報告を送信する", type="primary", use_container_width=T
         'added_at':   datetime.now().strftime('%Y/%m/%d %H:%M'),
     }
 
-    # 最新レコードを再読み込みして保存（競合防止）
+    # 最新レコードを再読み込みして上書き判定
     records = load_records()
     existing_i = next((i for i, r in enumerate(records) if r['id'] == record_id), None)
+    msg = "✅ 報告を**上書き**しました！" if existing_i is not None else "✅ 報告を**送信**しました！"
 
-    if existing_i is not None:
-        records[existing_i] = new_record   # 上書き
-        msg = "✅ 報告を**上書き**しました！"
-    else:
-        records.append(new_record)          # 新規追加
-        msg = "✅ 報告を**送信**しました！"
-
-    save_records(records)
+    save_records([new_record])  # 変更レコードのみ upsert
     st.success(msg)
     st.balloons()
 
