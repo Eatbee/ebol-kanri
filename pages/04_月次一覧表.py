@@ -296,9 +296,18 @@ def build_table():
                 cell_bg = bg_colors[0] if len(bg_colors) == 1 else inst_cell_color
                 inner = '<hr style="margin:2px 0;border-color:#ccc">'.join(parts)
                 cell_val = f"{d_str}__{inst}__{std}"
+                # onclick: 全iframeにpostMessageで通知（sandbox制限を回避）
+                onclick = (
+                    "(function(v){"
+                    "Array.from(document.querySelectorAll('iframe'))"
+                    ".forEach(function(f){"
+                    "try{f.contentWindow.postMessage({_ltc:v},'*')}catch(e){}"
+                    "});"
+                    "})('" + cell_val + "|'+Date.now())"
+                )
                 row_cells.append(
                     f'<td class="clickable" style="background:{cell_bg}" '
-                    f"onclick=\"localStorage.setItem('_ltClick','{cell_val}|'+Date.now())\">{inner}</td>"
+                    f'onclick="{onclick}">{inner}</td>'
                 )
             else:
                 row_cells.append(
@@ -316,9 +325,9 @@ st.markdown("### 📋 予定・実績 一覧表")
 st.caption("セルをクリックすると下部に実績詳細が表示されます")
 st.markdown(build_table(), unsafe_allow_html=True)
 
-# セルクリック値をJSから取得（localStorageで通信、Promiseポーリング）
+# セルクリック値をJSから取得（postMessageでiframeに通知→Promise解決）
 _clicked = streamlit_js_eval(
-    js_expressions="""new Promise(function(r){(function c(){var v=localStorage.getItem('_ltClick');if(v&&v!==''){localStorage.removeItem('_ltClick');r(v);}else{setTimeout(c,300);}})();})""",
+    js_expressions="""new Promise(function(r){window.addEventListener('message',function h(e){if(e.data&&typeof e.data._ltc==='string'){window.removeEventListener('message',h);r(e.data._ltc);}},false);})""",
     key="lt_click"
 )
 if _clicked and isinstance(_clicked, str) and '__' in _clicked:
