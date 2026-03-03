@@ -138,7 +138,7 @@ m5.metric("🗓 未来予定",   f"{status_counts['予定']} 件")
 # 凡例
 # ============================================================
 with st.expander("凡例・カラーの見方", expanded=False):
-    st.markdown("**ステータス**")
+    st.markdown("**ステータス色**")
     leg_cols = st.columns(len(STATUS_CONFIG))
     for i, (k, v) in enumerate(STATUS_CONFIG.items()):
         leg_cols[i].markdown(
@@ -177,76 +177,128 @@ for s in month_schedules:
     sched_lookup.setdefault(key, []).append(s)
 
 # ============================================================
-# 一覧表（st.dataframe）
+# HTMLテーブル構築
 # ============================================================
-st.markdown("### 📋 予定・実績 一覧表")
-st.caption("セルをクリックすると下部に実績詳細が表示されます")
+def build_table():
+    css = """
+<style>
+.lt-wrap { overflow-x: auto; margin-bottom: 12px; }
+.lt {
+    border-collapse: collapse;
+    font-size: 12.5px;
+    white-space: nowrap;
+    width: 100%;
+}
+.lt th, .lt td {
+    border: 1px solid #d1d5db;
+    padding: 5px 10px;
+    text-align: center;
+    vertical-align: middle;
+}
+.lt thead th { font-weight: bold; position: sticky; top: 0; z-index: 2; }
+.lt .date-col {
+    text-align: left !important;
+    min-width: 110px;
+    font-weight: 600;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #f1f5f9 !important;
+}
+.lt tbody tr:hover td { filter: brightness(0.95); }
+.lt .wknd { color: #dc2626; }
+</style>
+"""
+    rows = [f'<div class="lt-wrap">{css}<table class="lt">']
 
-# 列ラベル: "講師 / 生徒"
-col_labels = [f"{inst} / {std}" for inst, std in all_col_pairs]
+    # ── ヘッダー行1: 講師 ──
+    rows.append('<thead>')
+    rows.append('<tr>')
+    rows.append('<th class="date-col" rowspan="2" style="background:#f1f5f9">日付</th>')
+    for inst, stds in columns_by_inst.items():
+        hc = INSTRUCTOR_COLORS.get(inst, {}).get('header', '#e5e7eb')
+        rows.append(f'<th colspan="{len(stds)}" style="background:{hc}">{inst}</th>')
+    rows.append('</tr>')
 
-# 行ラベル: "MM/DD（曜）"
-row_labels = []
-for d_str in all_dates:
-    d_obj = date(*map(int, d_str.split('/')))
-    wd = WEEKDAY_MAP[d_obj.weekday()]
-    row_labels.append(f"{int(d_str[5:7])}/{int(d_str[8:10])}（{wd}）")
+    # ── ヘッダー行2: 生徒 ──
+    rows.append('<tr>')
+    for inst, stds in columns_by_inst.items():
+        hc = INSTRUCTOR_COLORS.get(inst, {}).get('header', '#e5e7eb')
+        for std in stds:
+            rows.append(f'<th style="background:{hc};font-weight:normal">{std}</th>')
+    rows.append('</tr>')
+    rows.append('</thead>')
 
-# セルの値
-table_data = {}
-for (inst, std), col_label in zip(all_col_pairs, col_labels):
-    col_vals = []
+    # ── データ行 ──
+    rows.append('<tbody>')
     for d_str in all_dates:
-        key = (inst, std, d_str)
-        if key in sched_lookup:
-            scheds = sched_lookup[key]
-            symbols = []
-            for sched in scheds:
-                st_val = get_status(sched)
-                cfg = STATUS_CONFIG.get(st_val, STATUS_CONFIG['─'])
-                symbols.append(cfg['symbol'])
-            col_vals.append(' '.join(symbols))
-        else:
-            col_vals.append('─')
-    table_data[col_label] = col_vals
+        d_obj   = date(*map(int, d_str.split('/')))
+        wd      = WEEKDAY_MAP[d_obj.weekday()]
+        wd_cls  = ' class="wknd"' if wd in ('土', '日') else ''
+        date_display = f'{int(d_str[5:7])}/{int(d_str[8:10])}（{wd}）'
+        date_cell = f'<td class="date-col"><span{wd_cls}>{date_display}</span></td>'
 
-df_table = pd.DataFrame(table_data, index=row_labels)
+        row_cells = [date_cell]
+        for inst, std in all_col_pairs:
+            key = (inst, std, d_str)
+            inst_cell_color = INSTRUCTOR_COLORS.get(inst, {}).get('cell', '#f9fafb')
+            if key in sched_lookup:
+                scheds = sched_lookup[key]
+                parts, bg_colors = [], []
+                for sched in scheds:
+                    st_val = get_status(sched)
+                    cfg    = STATUS_CONFIG.get(st_val, STATUS_CONFIG['─'])
+                    bg_colors.append(cfg['bg'])
+                    tstr = (
+                        f'<br><span style="font-size:10px;color:#888">{sched.get("time","")}</span>'
+                    ) if sched.get('time') else ''
+                    parts.append(
+                        f'<span style="color:{cfg["color"]};font-size:14px">{cfg["symbol"]}</span>{tstr}'
+                    )
+                cell_bg = bg_colors[0] if len(bg_colors) == 1 else inst_cell_color
+                inner   = '<hr style="margin:2px 0;border-color:#ccc">'.join(parts)
+                row_cells.append(f'<td style="background:{cell_bg}">{inner}</td>')
+            else:
+                row_cells.append('<td style="background:#f8fafc;color:#d1d5db;font-size:11px">─</td>')
 
-# 講師別背景色
-def _style_cols(col):
-    inst = col.name.split(' / ')[0]
-    bg = INSTRUCTOR_COLORS.get(inst, {}).get('cell', '#ffffff')
-    return [f'background-color: {bg}'] * len(col)
+        rows.append(f'<tr>{"".join(row_cells)}</tr>')
 
-styled_df = df_table.style.apply(_style_cols, axis=0)
+    rows.append('</tbody></table></div>')
+    return '\n'.join(rows)
 
-event = st.dataframe(
-    styled_df,
-    on_select="rerun",
-    selection_mode="single-cell",
-    use_container_width=True,
-    height=min(len(all_dates) * 35 + 80, 600),
+st.markdown("### 📋 予定・実績 一覧表")
+st.markdown(build_table(), unsafe_allow_html=True)
+
+# ============================================================
+# 実績の選択UI（セルクリックの代替）
+# ============================================================
+st.divider()
+st.markdown("### 🔍 実績の確認・修正・削除")
+st.caption("下で日付・講師・生徒を選んで「表示」を押してください")
+
+# 選択肢を作成
+date_options = all_dates
+_sc1, _sc2, _sc3, _sc4 = st.columns([2, 2, 2, 1])
+
+sel_date = _sc1.selectbox(
+    "日付",
+    date_options,
+    format_func=lambda d: f"{int(d[5:7])}/{int(d[8:10])}（{WEEKDAY_MAP[date(*map(int, d.split('/'))).weekday()]}）",
+    key="sel_detail_date"
 )
 
-# 選択されたセルから _sel を設定
-_sel_rows = getattr(event.selection, "rows", [])
-_sel_cols = getattr(event.selection, "columns", [])
-st.caption(f"[debug] rows={_sel_rows} cols={_sel_cols} selection={event.selection}")
-if _sel_rows and _sel_cols:
-    _row_idx = _sel_rows[0]
-    _col_idx = _sel_cols[0]
-    if 0 <= _row_idx < len(all_dates) and 0 <= _col_idx < len(all_col_pairs):
-        _sel_d_str = all_dates[_row_idx]
-        _sel_inst, _sel_std = all_col_pairs[_col_idx]
-        if (_sel_inst, _sel_std, _sel_d_str) in sched_lookup:
-            st.session_state["_sel"] = {"date": _sel_d_str, "inst": _sel_inst, "std": _sel_std}
-            st.session_state.pop("_edit_mode", None)
-            st.session_state.pop("_confirm_delete", None)
-        else:
-            st.session_state.pop("_sel", None)
-else:
-    if not st.session_state.get("_edit_mode") and not st.session_state.get("_confirm_delete"):
-        st.session_state.pop("_sel", None)
+inst_options = sorted(set(inst for (inst, std, d) in sched_lookup if d == sel_date))
+sel_inst = _sc2.selectbox("講師", inst_options, key="sel_detail_inst") if inst_options else None
+
+std_options = [std for (inst, std, d) in sched_lookup if d == sel_date and inst == sel_inst] if sel_inst else []
+sel_std = _sc3.selectbox("生徒", std_options, key="sel_detail_std") if std_options else None
+
+if _sc4.button("表示", key="btn_show_detail", use_container_width=True):
+    if sel_inst and sel_std:
+        st.session_state["_sel"] = {"date": sel_date, "inst": sel_inst, "std": sel_std}
+        st.session_state.pop("_edit_mode", None)
+        st.session_state.pop("_confirm_delete", None)
+        st.rerun()
 
 # ============================================================
 # CSV エクスポート
