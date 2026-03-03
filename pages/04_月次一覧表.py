@@ -298,7 +298,7 @@ def build_table():
                 cell_val = f"{d_str}__{inst}__{std}"
                 row_cells.append(
                     f'<td class="clickable" style="background:{cell_bg}" '
-                    f"onclick=\"window._ltClick='{cell_val}|'+Date.now()\">{inner}</td>"
+                    f"onclick=\"localStorage.setItem('_ltClick','{cell_val}|'+Date.now())\">{inner}</td>"
                 )
             else:
                 row_cells.append(
@@ -316,15 +316,18 @@ st.markdown("### 📋 予定・実績 一覧表")
 st.caption("セルをクリックすると下部に実績詳細が表示されます")
 st.markdown(build_table(), unsafe_allow_html=True)
 
-# セルクリック値をJSから取得（Promiseポーリングでiframe→親ウィンドウを監視）
+# セルクリック値をJSから取得（localStorageで通信、Promiseポーリング）
 _clicked = streamlit_js_eval(
-    js_expressions="""new Promise(function(r){(function c(){var v=window.parent._ltClick;if(v&&v!==''){window.parent._ltClick='';r(v);}else{setTimeout(c,300);}})();})""",
+    js_expressions="""new Promise(function(r){(function c(){var v=localStorage.getItem('_ltClick');if(v&&v!==''){localStorage.removeItem('_ltClick');r(v);}else{setTimeout(c,300);}})();})""",
     key="lt_click"
 )
 if _clicked and isinstance(_clicked, str) and '__' in _clicked:
     _val = _clicked.split('|')[0] if '|' in _clicked else _clicked
+    _ts  = _clicked.split('|')[1] if '|' in _clicked else ''
     _parts = _val.split('__')
-    if len(_parts) == 3:
+    # 同じクリックを二重処理しないようタイムスタンプで照合
+    if len(_parts) == 3 and _ts != st.session_state.get('_last_lt_ts', ''):
+        st.session_state['_last_lt_ts'] = _ts
         st.session_state['_sel'] = {'date': _parts[0], 'inst': _parts[1], 'std': _parts[2]}
         st.session_state.pop('_edit_mode', None)
         st.session_state.pop('_confirm_delete', None)
