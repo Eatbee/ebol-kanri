@@ -13,8 +13,8 @@ from urllib.parse import quote
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
     INSTRUCTORS, STUDENTS_BY_INSTRUCTOR,
-    load_records, load_schedules, match_record,
-    load_locks, WEEKDAY_MAP,
+    load_records, save_records, load_schedules, match_record,
+    load_locks, WEEKDAY_MAP, is_month_locked,
 )
 
 st.title("📊 月次一覧表")
@@ -44,8 +44,10 @@ if _sel_date and _sel_inst and _sel_std:
         None
     )
 
-    if st.button("← 一覧に戻る"):
+    _btn_col, _ = st.columns([1, 4])
+    if _btn_col.button("← 一覧に戻る"):
         st.query_params.clear()
+        st.session_state.pop('_edit_mode', None)
         st.rerun()
 
     st.subheader(f"{_sel_std}（{_sel_inst}） — {_d_str}")
@@ -54,16 +56,83 @@ if _sel_date and _sel_inst and _sel_std:
         _tstr = f" {_sched.get('time','')}" if _sched.get('time') else ''
         st.write(f"時刻: {_tstr.strip() if _tstr.strip() else '（未設定）'}")
 
+    _locked = is_month_locked(_d_str)
+
     if _rec:
-        _icon = '✅' if _rec['status'] == '実施済' else '❌'
-        st.write(f"状態: {_icon} {_rec['status']}")
-        if _rec.get('song'):
-            st.write(f"実施曲: {_rec['song']}")
-        if _rec.get('comment'):
-            st.markdown("**コメント**")
-            st.text_area("", value=_rec['comment'], height=120, disabled=True,
-                         label_visibility="collapsed", key="_detail_comment")
-        st.caption(f"登録: {_rec.get('added_at', '')}")
+        if not st.session_state.get('_edit_mode'):
+            # ── 参照表示 ──
+            _icon = '✅' if _rec['status'] == '実施済' else '❌'
+            st.write(f"状態: {_icon} {_rec['status']}")
+            if _rec.get('song'):
+                st.write(f"実施曲: {_rec['song']}")
+            if _rec.get('comment'):
+                st.markdown("**コメント**")
+                st.text_area("", value=_rec['comment'], height=120, disabled=True,
+                             label_visibility="collapsed", key="_detail_comment")
+            st.caption(f"登録: {_rec.get('added_at', '')}")
+            if _locked:
+                st.warning("🔒 ロック中のため修正できません")
+            else:
+                if st.button("✏️ 修正する"):
+                    st.session_state['_edit_mode'] = True
+                    st.rerun()
+        else:
+            # ── 修正フォーム ──
+            st.info("内容を修正して「保存する」を押してください。日付を変えると古い記録は削除されます。")
+            _new_date = st.date_input(
+                "実施日", value=date(*map(int, _d_str.split('/'))),
+                min_value=date(2025, 10, 1), max_value=date(2027, 3, 31),
+                format="YYYY/MM/DD", key="_edit_date"
+            )
+            _cur_status = '✅ 実施済' if _rec['status'] == '実施済' else '❌ キャンセル'
+            _new_status_sel = st.radio(
+                "実施状況", ['✅ 実施済', '❌ キャンセル'],
+                index=0 if _rec['status'] == '実施済' else 1,
+                horizontal=True, key="_edit_status"
+            )
+            _new_status = '実施済' if _new_status_sel.startswith('✅') else 'キャンセル'
+            _new_song    = st.text_input("実施曲", value=_rec.get('song', ''), key="_edit_song")
+            _new_comment = st.text_area("コメント", value=_rec.get('comment', ''),
+                                        height=120, key="_edit_comment")
+
+            _sv1, _sv2 = st.columns(2)
+            if _sv1.button("💾 保存する", type="primary", key="_save_edit"):
+                _new_date_str = _new_date.strftime('%Y/%m/%d')
+                _new_wd       = WEEKDAY_MAP[_new_date.weekday()]
+                _new_id       = f"{_sel_inst}_{_sel_std}_{_new_date_str}"
+                _new_rec = {
+                    'id':         _new_id,
+                    'date':       _new_date_str,
+                    'weekday':    _new_wd,
+                    'time':       _rec.get('time', ''),
+                    'instructor': _sel_inst,
+                    'student':    _sel_std,
+                    'status':     _new_status,
+                    'song':       _new_song.strip(),
+                    'comment':    _new_comment.strip(),
+                    'source':     _rec.get('source', 'form'),
+                    'added_at':   datetime.now().strftime('%Y/%m/%d %H:%M'),
+                }
+                _recs = load_records()
+                # 古いレコードを削除
+                _recs = [r for r in _recs if r['id'] != _rec['id']]
+                # 同じidがすでにあれば上書き、なければ追加
+                _existing_idx = next((i for i, r in enumerate(_recs) if r['id'] == _new_id), None)
+                if _existing_idx is not None:
+                    _recs[_existing_idx] = _new_rec
+                else:
+                    _recs.append(_new_rec)
+                save_records(_recs)
+                st.session_state.pop('_edit_mode', None)
+                # 新しい日付のURLに遷移
+                new_url_date = _new_date_str.replace('/', '-')
+                st.query_params['sel_date'] = new_url_date
+                st.success("保存しました")
+                st.rerun()
+
+            if _sv2.button("キャンセル", key="_cancel_edit"):
+                st.session_state.pop('_edit_mode', None)
+                st.rerun()
     else:
         _st_val = '─'
         if _sched:

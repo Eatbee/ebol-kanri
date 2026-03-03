@@ -353,7 +353,11 @@ with tab3:
 
             label = f"{icon}{type_tag}　**{sched['scheduled_date']}（{sched['weekday']}）{tstr}**　{sched['instructor']} / {sched['student']}{rsched_to}"
 
-            with st.expander(label, expanded=False):
+            _expanding = (
+                st.session_state.get(f"confirm_cancel_{sched['id']}") or
+                st.session_state.get(f"confirm_delete_{sched['id']}")
+            )
+            with st.expander(label, expanded=bool(_expanding)):
                 if sched.get('note'):
                     st.caption(f"📝 {sched['note']}")
                 if sched.get('original_date'):
