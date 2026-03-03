@@ -168,6 +168,17 @@ def match_record(schedule: dict, records: list):
             return r
     return None
 
+def compute_auth_token(hours_offset: int = 0) -> str:
+    """時間ベースの認証トークン（PIN＋時刻のハッシュ）。セルリンク用。"""
+    import hashlib
+    TEACHER_PIN = str(st.secrets.get("TEACHER_PIN", "0000")).strip()
+    hour = (datetime.now() - timedelta(hours=hours_offset)).strftime('%Y%m%d%H')
+    return hashlib.md5(f"ebol{TEACHER_PIN}{hour}".encode()).hexdigest()[:12]
+
+def is_valid_auth_token(token: str) -> bool:
+    """現在または1時間前のトークンと一致するか確認"""
+    return token in (compute_auth_token(0), compute_auth_token(1))
+
 def get_local_ip() -> str:
     """Wi-Fi のローカルアドレスを返す（クラウド環境では使用しない）"""
     try:

@@ -8,17 +8,19 @@ import pandas as pd
 import sys
 import os
 from datetime import date, datetime
-from streamlit_js_eval import streamlit_js_eval
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
     INSTRUCTORS, STUDENTS_BY_INSTRUCTOR,
     load_records, save_records, delete_record, load_schedules, match_record,
-    load_locks, WEEKDAY_MAP, is_month_locked,
+    load_locks, WEEKDAY_MAP, is_month_locked, compute_auth_token,
 )
 
 st.title("📊 月次一覧表")
 st.caption("予定と実績を一覧表で確認できます（最終チェック用）")
+
+# セルリンク用の認証トークン（時間ベースハッシュ）
+_auth_token = compute_auth_token()
 
 # ============================================================
 # カラー設定
@@ -229,8 +231,8 @@ def build_table():
 }
 .lt tbody tr:hover td { filter: brightness(0.95); }
 .lt .wknd { color: #dc2626; }
-.lt .clickable { cursor: pointer; }
-.lt .clickable:hover { outline: 2px solid #2b6be6; outline-offset: -2px; }
+.lt td a { display:block; text-decoration:none; color:inherit; padding:5px 10px; margin:-5px -10px; }
+.lt td a:hover { outline: 2px solid #2b6be6; outline-offset: -2px; }
 </style>
 """
     rows = [f'<div class="lt-wrap">{css}<table class="lt">']
@@ -296,18 +298,10 @@ def build_table():
                 cell_bg = bg_colors[0] if len(bg_colors) == 1 else inst_cell_color
                 inner = '<hr style="margin:2px 0;border-color:#ccc">'.join(parts)
                 cell_val = f"{d_str}__{inst}__{std}"
-                # onclick: 全iframeにpostMessageで通知（sandbox制限を回避）
-                onclick = (
-                    "(function(v){"
-                    "Array.from(document.querySelectorAll('iframe'))"
-                    ".forEach(function(f){"
-                    "try{f.contentWindow.postMessage({_ltc:v},'*')}catch(e){}"
-                    "});"
-                    "})('" + cell_val + "|'+Date.now())"
-                )
                 row_cells.append(
-                    f'<td class="clickable" style="background:{cell_bg}" '
-                    f'onclick="{onclick}">{inner}</td>'
+                    f'<td style="background:{cell_bg};padding:0">'
+                    f'<a href="?sel={cell_val}&auth={_auth_token}">'
+                    f'{inner}</a></td>'
                 )
             else:
                 row_cells.append(
@@ -325,23 +319,17 @@ st.markdown("### 📋 予定・実績 一覧表")
 st.caption("セルをクリックすると下部に実績詳細が表示されます")
 st.markdown(build_table(), unsafe_allow_html=True)
 
-# セルクリック値をJSから取得
-# postMessage受信 → Streamlit.setComponentValue() を直接呼び出す（Promiseは使わない）
-_clicked = streamlit_js_eval(
-    js_expressions="""(function(){window.addEventListener('message',function(e){if(e.data&&typeof e.data._ltc==='string'&&e.data._ltc!==''){Streamlit.setComponentValue(e.data._ltc);}},false);})()""",
-    key="lt_click"
-)
-if _clicked and isinstance(_clicked, str) and '__' in _clicked:
-    _val = _clicked.split('|')[0] if '|' in _clicked else _clicked
-    _ts  = _clicked.split('|')[1] if '|' in _clicked else ''
-    _parts = _val.split('__')
-    # 同じクリックを二重処理しないようタイムスタンプで照合
-    if len(_parts) == 3 and _ts != st.session_state.get('_last_lt_ts', ''):
-        st.session_state['_last_lt_ts'] = _ts
-        st.session_state['_sel'] = {'date': _parts[0], 'inst': _parts[1], 'std': _parts[2]}
-        st.session_state.pop('_edit_mode', None)
-        st.session_state.pop('_confirm_delete', None)
-        st.rerun()
+# セルクリックはURLクエリパラメータ ?sel= で受け取る
+_sel_param = st.query_params.get("sel", "")
+if _sel_param and "__" in _sel_param:
+    _parts = _sel_param.split("__")
+    if len(_parts) == 3:
+        st.session_state["_sel"] = {"date": _parts[0], "inst": _parts[1], "std": _parts[2]}
+        st.session_state.pop("_edit_mode", None)
+        st.session_state.pop("_confirm_delete", None)
+else:
+    if not _sel_param:
+        st.session_state.pop("_sel", None)
 
 # ============================================================
 # CSV エクスポート
@@ -448,6 +436,7 @@ if _sel:
     _hcol, _ccol = st.columns([5, 1])
     _hcol.markdown(f"### 🔍 {_d_std}（{_d_inst}） — {_sel_d}")
     if _ccol.button("✕ 閉じる", key="btn_close_detail"):
+        st.query_params.pop("sel", None)
         st.session_state.pop('_sel', None)
         st.session_state.pop('_edit_mode', None)
         st.session_state.pop('_confirm_delete', None)
@@ -497,6 +486,7 @@ if _sel:
                 _dc1, _dc2 = st.columns(2)
                 if _dc1.button("削除する", type="primary", key="btn_do_delete"):
                     delete_record(_d_rec['id'])
+                    st.query_params.pop("sel", None)
                     st.session_state.pop('_confirm_delete', None)
                     st.session_state.pop('_sel', None)
                     st.rerun()
@@ -543,6 +533,7 @@ if _sel:
                 save_records([_new_rec_data])
                 st.session_state.pop('_edit_mode', None)
                 st.session_state['_sel'] = {'date': _new_date_str, 'inst': _d_inst, 'std': _d_std}
+                st.query_params["sel"] = f"{_new_date_str}__{_d_inst}__{_d_std}"
                 st.success("保存しました")
                 st.rerun()
             if _sv2.button("キャンセル", key="btn_cancel_edit"):

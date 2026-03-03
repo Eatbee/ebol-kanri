@@ -8,6 +8,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils import is_valid_auth_token
 
 st.set_page_config(
     page_title="英会話管理",
@@ -19,6 +20,13 @@ st.set_page_config(
 # 先生用 PIN 認証（アプリ起動時に1回だけ）
 # ============================================================
 if not st.session_state.get("teacher_auth", False):
+    # 月次一覧表のセルリンクから来た場合：URLトークンで自動認証
+    _url_auth = st.query_params.get("auth", "")
+    if _url_auth and is_valid_auth_token(_url_auth):
+        st.session_state.teacher_auth = True
+        del st.query_params["auth"]
+        st.rerun()
+
     st.title("🔑 EBOL英会話 ログイン")
     st.write("")
     pin = st.text_input("PINコードを入力してください", type="password", max_chars=4)
