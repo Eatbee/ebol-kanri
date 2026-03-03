@@ -24,7 +24,6 @@ if not st.session_state.get("teacher_auth", False):
     _url_auth = st.query_params.get("auth", "")
     if _url_auth and is_valid_auth_token(_url_auth):
         st.session_state.teacher_auth = True
-        del st.query_params["auth"]
         st.rerun()
 
     st.title("🔑 EBOL英会話 ログイン")

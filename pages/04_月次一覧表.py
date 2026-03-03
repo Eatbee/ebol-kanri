@@ -8,6 +8,7 @@ import pandas as pd
 import sys
 import os
 from datetime import date, datetime
+from urllib.parse import quote
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
@@ -231,8 +232,8 @@ def build_table():
 }
 .lt tbody tr:hover td { filter: brightness(0.95); }
 .lt .wknd { color: #dc2626; }
-.lt td a { display:block; text-decoration:none; color:inherit; padding:5px 10px; margin:-5px -10px; }
-.lt td a:hover { outline: 2px solid #2b6be6; outline-offset: -2px; }
+.lt td.clickable { cursor: pointer; }
+.lt td.clickable:hover { outline: 2px solid #2b6be6; outline-offset: -2px; }
 </style>
 """
     rows = [f'<div class="lt-wrap">{css}<table class="lt">']
@@ -297,11 +298,12 @@ def build_table():
                     )
                 cell_bg = bg_colors[0] if len(bg_colors) == 1 else inst_cell_color
                 inner = '<hr style="margin:2px 0;border-color:#ccc">'.join(parts)
-                cell_val = f"{d_str}__{inst}__{std}"
+                cell_val = quote(f"{d_str}__{inst}__{std}")
+                url = f"?sel={cell_val}&auth={_auth_token}"
                 row_cells.append(
-                    f'<td style="background:{cell_bg};padding:0">'
-                    f'<a href="?sel={cell_val}&auth={_auth_token}">'
-                    f'{inner}</a></td>'
+                    f'<td class="clickable" style="background:{cell_bg}" '
+                    f'onclick="window.location.href=\'{url}\'">'
+                    f'{inner}</td>'
                 )
             else:
                 row_cells.append(
