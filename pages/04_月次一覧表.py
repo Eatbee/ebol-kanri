@@ -48,6 +48,7 @@ if _sel_date and _sel_inst and _sel_std:
     if _btn_col.button("← 一覧に戻る"):
         st.query_params.clear()
         st.session_state.pop('_edit_mode', None)
+        st.session_state.pop('_confirm_delete', None)
         st.rerun()
 
     st.subheader(f"{_sel_std}（{_sel_inst}） — {_d_str}")
@@ -71,10 +72,27 @@ if _sel_date and _sel_inst and _sel_std:
                              label_visibility="collapsed", key="_detail_comment")
             st.caption(f"登録: {_rec.get('added_at', '')}")
             if _locked:
-                st.warning("🔒 ロック中のため修正できません")
-            else:
-                if st.button("✏️ 修正する"):
+                st.warning("🔒 ロック中のため修正・削除できません")
+            elif not st.session_state.get('_confirm_delete'):
+                _ac1, _ac2 = st.columns(2)
+                if _ac1.button("✏️ 修正する"):
                     st.session_state['_edit_mode'] = True
+                    st.rerun()
+                if _ac2.button("🗑️ 削除する"):
+                    st.session_state['_confirm_delete'] = True
+                    st.rerun()
+            else:
+                st.error("この実績記録を削除しますか？（取り消せません）")
+                _dc1, _dc2 = st.columns(2)
+                if _dc1.button("削除する", type="primary", key="_do_delete"):
+                    _recs = load_records()
+                    _recs = [r for r in _recs if r['id'] != _rec['id']]
+                    save_records(_recs)
+                    st.session_state.pop('_confirm_delete', None)
+                    st.query_params.clear()
+                    st.rerun()
+                if _dc2.button("やめる", key="_cancel_delete"):
+                    st.session_state.pop('_confirm_delete', None)
                     st.rerun()
         else:
             # ── 修正フォーム ──
