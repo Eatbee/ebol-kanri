@@ -291,18 +291,43 @@ st.markdown("### 👤 生徒別 集計")
 
 col_sm2, _ = st.columns([2, 5])
 cur_idx = months_available.index(selected_month) if selected_month in months_available else 0
-new_sum_month = col_sm2.selectbox(
+sum_month = col_sm2.selectbox(
     "月を選択（集計）", months_available, index=cur_idx, key='sm_month_sum'
 )
-if new_sum_month != selected_month:
-    st.session_state['sm_month'] = new_sum_month
-    st.rerun()
+
+# 集計用データ（上部の月選択とは独立）
+sum_schedules = [s for s in schedules_all if s['scheduled_date'].startswith(sum_month)]
+sum_existing_keys = set(
+    (s['instructor'], s['student'], s['scheduled_date']) for s in sum_schedules
+)
+for r in records_all:
+    if not r['date'].startswith(sum_month):
+        continue
+    key = (r['instructor'], r['student'], r['date'])
+    if key not in sum_existing_keys:
+        sum_schedules.append({
+            'instructor': r['instructor'], 'student': r['student'],
+            'scheduled_date': r['date'], 'status': 'scheduled',
+            'type': 'regular', 'series_id': '', 'note': '',
+            'id': f"rec_{r.get('id','')}", 'weekday': '', 'time': '',
+        })
+        sum_existing_keys.add(key)
+
+sum_columns_by_inst = {}
+for inst in INSTRUCTORS:
+    stds = sorted(
+        set(s['student'] for s in sum_schedules if s['instructor'] == inst),
+        key=lambda x: STUDENTS_BY_INSTRUCTOR[inst].index(x)
+        if x in STUDENTS_BY_INSTRUCTOR[inst] else 999
+    )
+    if stds:
+        sum_columns_by_inst[inst] = stds
 
 summary_rows = []
-for inst, stds in columns_by_inst.items():
+for inst, stds in sum_columns_by_inst.items():
     for std in stds:
         std_scheds = [
-            s for s in month_schedules
+            s for s in sum_schedules
             if s['instructor'] == inst and s['student'] == std
         ]
         cnts = {k: 0 for k in STATUS_CONFIG}
