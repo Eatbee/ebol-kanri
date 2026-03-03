@@ -231,6 +231,7 @@ event = st.dataframe(
 # 選択されたセルから _sel を設定
 _sel_rows = getattr(event.selection, "rows", [])
 _sel_cols = getattr(event.selection, "columns", [])
+st.caption(f"[debug] rows={_sel_rows} cols={_sel_cols} selection={event.selection}")
 if _sel_rows and _sel_cols:
     _row_idx = _sel_rows[0]
     _col_idx = _sel_cols[0]
