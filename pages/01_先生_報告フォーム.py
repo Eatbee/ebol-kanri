@@ -113,8 +113,11 @@ if st.button("📤 報告を送信する", type="primary", use_container_width=T
     existing_i = next((i for i, r in enumerate(records) if r['id'] == record_id), None)
     msg = "✅ 報告を**上書き**しました！" if existing_i is not None else "✅ 報告を**送信**しました！"
 
-    save_records([new_record])  # 変更レコードのみ upsert
-    st.success(msg)
+    try:
+        save_records([new_record])  # 変更レコードのみ upsert
+        st.success(msg)
+    except Exception as e:
+        st.error(f"保存エラー（詳細）: {e}")
     st.balloons()
 
     # 送信内容確認
