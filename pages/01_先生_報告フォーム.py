@@ -49,9 +49,11 @@ if locked:
     st.error(f"🔒 **{month_key} はロックされています。**\n\nこの月の記録は変更できません。内容を訂正したい場合は管理者に連絡してください。")
     st.stop()
 
-# ── 状態・コメント ────────────────────────────────────────────
+# ── 状態・実施曲・コメント ────────────────────────────────────────────
 status_sel = st.radio("実施状況 ＊", ['✅ 実施済', '❌ キャンセル'], horizontal=True)
 status_val = '実施済' if status_sel.startswith('✅') else 'キャンセル'
+
+song = st.text_input("実施曲（任意）", placeholder="例: Let It Be / Shape of You", max_chars=200)
 
 placeholder = (
     "今日のレッスンの様子を自由に書いてください。\n例）過去形の復習をしました。積極的に発言できていました。次回は現在完了形を予定。"
@@ -67,9 +69,10 @@ existing_i = next((i for i, r in enumerate(records) if r['id'] == record_id), No
 
 if existing_i is not None:
     existing = records[existing_i]
+    song_preview = f" / 実施曲: {existing.get('song','')[:20]}" if existing.get('song') else ""
     st.warning(
         f"⚠️ **{date_str}（{existing['weekday']}）の {student} の報告はすでに登録されています。**\n\n"
-        f"現在の内容：{existing['status']} / {existing.get('comment','')[:40]}...\n\n"
+        f"現在の内容：{existing['status']}{song_preview} / {existing.get('comment','')[:40]}...\n\n"
         "送信すると上書きされます。"
     )
 
@@ -99,6 +102,7 @@ if st.button("📤 報告を送信する", type="primary", use_container_width=T
         'instructor': instructor,
         'student':    student,
         'status':     status_val,
+        'song':       song.strip(),
         'comment':    comment.strip(),
         'source':     'form',
         'added_at':   datetime.now().strftime('%Y/%m/%d %H:%M'),
@@ -131,6 +135,7 @@ if st.button("📤 報告を送信する", type="primary", use_container_width=T
 | 生徒 | {student} |
 | 日時 | {date_str}（{weekday}）{' ' + time_str if time_str else ''} |
 | 状態 | {icon} {status_val} |
+| 実施曲 | {song.strip() if song.strip() else '（なし）'} |
 """)
     if comment.strip():
         st.info(comment.strip())
@@ -141,8 +146,9 @@ with st.expander("❓ 使い方"):
 1. **講師名・生徒名** を選ぶ
 2. **実施日** を選ぶ
 3. **実施済 / キャンセル** を選ぶ
-4. **コメント** を入力（省略可）
-5. **「報告を送信する」** をクリック
+4. **実施曲** を入力（省略可）
+5. **コメント** を入力（省略可）
+6. **「報告を送信する」** をクリック
 
 同じ日・同じ生徒で再送信すると内容が**上書き**されます（ロック前のみ）。
 """)

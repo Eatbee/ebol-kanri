@@ -365,8 +365,11 @@ with tab3:
                 elif sched['status'] == 'scheduled':
                     ba, bb, bc = st.columns(3)
                     cancel_key = f"cancel_{sched['id']}"
+                    delete_key = f"delete_{sched['id']}"
                     if ba.button("❌ キャンセル", key=cancel_key):
                         st.session_state[f"confirm_cancel_{sched['id']}"] = True
+                    if bc.button("🗑️ 削除", key=delete_key):
+                        st.session_state[f"confirm_delete_{sched['id']}"] = True
 
                     if st.session_state.get(f"confirm_cancel_{sched['id']}"):
                         note_cancel = st.text_input("キャンセル理由（任意）", key=f"note_cancel_{sched['id']}")
@@ -385,8 +388,22 @@ with tab3:
                             st.session_state.pop(f"confirm_cancel_{sched['id']}", None)
                             st.rerun()
 
+                    if st.session_state.get(f"confirm_delete_{sched['id']}"):
+                        st.error("本当に削除しますか？（この操作は取り消せません）")
+                        cd1, cd2 = st.columns(2)
+                        if cd1.button("削除する", key=f"ok_delete_{sched['id']}", type="primary"):
+                            schedules_reload = load_schedules()
+                            schedules_reload = [s for s in schedules_reload if s['id'] != sched['id']]
+                            save_schedules(schedules_reload)
+                            st.session_state.pop(f"confirm_delete_{sched['id']}", None)
+                            st.rerun()
+                        if cd2.button("やめる", key=f"no_delete_{sched['id']}"):
+                            st.session_state.pop(f"confirm_delete_{sched['id']}", None)
+                            st.rerun()
+
                 elif sched['status'] == 'cancelled':
-                    if st.button("↩️ キャンセルを取り消す", key=f"uncancel_{sched['id']}"):
+                    col_unc, col_del = st.columns(2)
+                    if col_unc.button("↩️ キャンセルを取り消す", key=f"uncancel_{sched['id']}"):
                         schedules_reload = load_schedules()
                         for s in schedules_reload:
                             if s['id'] == sched['id']:
@@ -394,3 +411,18 @@ with tab3:
                                 break
                         save_schedules(schedules_reload)
                         st.rerun()
+                    if col_del.button("🗑️ 削除", key=f"delete_cancelled_{sched['id']}"):
+                        st.session_state[f"confirm_delete_{sched['id']}"] = True
+
+                    if st.session_state.get(f"confirm_delete_{sched['id']}"):
+                        st.error("本当に削除しますか？（この操作は取り消せません）")
+                        cd1, cd2 = st.columns(2)
+                        if cd1.button("削除する", key=f"ok_delete_{sched['id']}", type="primary"):
+                            schedules_reload = load_schedules()
+                            schedules_reload = [s for s in schedules_reload if s['id'] != sched['id']]
+                            save_schedules(schedules_reload)
+                            st.session_state.pop(f"confirm_delete_{sched['id']}", None)
+                            st.rerun()
+                        if cd2.button("やめる", key=f"no_delete_{sched['id']}"):
+                            st.session_state.pop(f"confirm_delete_{sched['id']}", None)
+                            st.rerun()

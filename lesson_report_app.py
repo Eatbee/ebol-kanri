@@ -48,15 +48,14 @@ pg = st.navigation(
         ],
         "📋 一覧表": [
             admin_page,
-            st.Page("pages/02_実績一覧.py",  title="レッスン実績", icon="💬"),
-            st.Page("pages/04_月次一覧表.py", title="月次一覧表",   icon="📊"),
+            st.Page("pages/04_月次一覧表.py", title="月次一覧表", icon="📊"),
         ],
     },
     position="hidden",  # サイドバーを使わない
 )
 
 # ページ上部ナビゲーションバー（スマホ・PC共通）
-c1, c2, c3, c4, c5 = st.columns(5)
+c1, c2, c3, c4 = st.columns(4)
 with c1:
     st.page_link("pages/01_先生_報告フォーム.py", label="📝 報告フォーム", use_container_width=True)
 with c2:
@@ -64,8 +63,6 @@ with c2:
 with c3:
     st.page_link(admin_path, label="🔑 管理者用", use_container_width=True)
 with c4:
-    st.page_link("pages/02_実績一覧.py", label="💬 レッスン実績", use_container_width=True)
-with c5:
     st.page_link("pages/04_月次一覧表.py", label="📊 月次一覧表", use_container_width=True)
 
 st.divider()

@@ -8,6 +8,7 @@ import pandas as pd
 import sys
 import os
 from datetime import date, datetime
+from urllib.parse import quote
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
@@ -18,6 +19,66 @@ from utils import (
 
 st.title("📊 月次一覧表")
 st.caption("予定と実績を一覧表で確認できます（最終チェック用）")
+
+# ============================================================
+# セルクリック → 実績詳細表示
+# ============================================================
+_sel_date = st.query_params.get('sel_date', '')
+_sel_inst = st.query_params.get('sel_inst', '')
+_sel_std  = st.query_params.get('sel_std', '')
+
+if _sel_date and _sel_inst and _sel_std:
+    _d_str       = _sel_date.replace('-', '/')
+    _records_all  = load_records()
+    _scheds_all   = load_schedules()
+    _today        = date.today()
+
+    _rec = next(
+        (r for r in _records_all
+         if r['date'] == _d_str and r['instructor'] == _sel_inst and r['student'] == _sel_std),
+        None
+    )
+    _sched = next(
+        (s for s in _scheds_all
+         if s['scheduled_date'] == _d_str and s['instructor'] == _sel_inst and s['student'] == _sel_std),
+        None
+    )
+
+    if st.button("← 一覧に戻る"):
+        st.query_params.clear()
+        st.rerun()
+
+    st.subheader(f"{_sel_std}（{_sel_inst}） — {_d_str}")
+
+    if _sched:
+        _tstr = f" {_sched.get('time','')}" if _sched.get('time') else ''
+        st.write(f"時刻: {_tstr.strip() if _tstr.strip() else '（未設定）'}")
+
+    if _rec:
+        _icon = '✅' if _rec['status'] == '実施済' else '❌'
+        st.write(f"状態: {_icon} {_rec['status']}")
+        if _rec.get('song'):
+            st.write(f"実施曲: {_rec['song']}")
+        if _rec.get('comment'):
+            st.markdown("**コメント**")
+            st.text_area("", value=_rec['comment'], height=120, disabled=True,
+                         label_visibility="collapsed", key="_detail_comment")
+        st.caption(f"登録: {_rec.get('added_at', '')}")
+    else:
+        _st_val = '─'
+        if _sched:
+            _sd = date(*map(int, _d_str.split('/')))
+            if _sched['status'] == 'cancelled':
+                _st_val = '予定キャンセル'
+            elif _sched['status'] == 'rescheduled':
+                _st_val = '振替済'
+            elif _sd > _today:
+                _st_val = '予定（未来）'
+            else:
+                _st_val = '未報告'
+        st.info(f"実績データなし（ステータス: {_st_val}）")
+
+    st.stop()
 
 # ============================================================
 # カラー設定
@@ -224,6 +285,9 @@ def build_table():
 }
 .lt tbody tr:hover td { filter: brightness(0.95); }
 .lt .wknd { color: #dc2626; }
+.lt .clickable { cursor: pointer; }
+.lt .clickable a { text-decoration: none; color: inherit; display: block; }
+.lt .clickable:hover { outline: 2px solid #2b6be6; }
 </style>
 """
     rows = [f'<div class="lt-wrap">{css}<table class="lt">']
@@ -288,8 +352,13 @@ def build_table():
                     )
                 cell_bg = bg_colors[0] if len(bg_colors) == 1 else inst_cell_color
                 inner = '<hr style="margin:2px 0;border-color:#ccc">'.join(parts)
+                url_date = d_str.replace('/', '-')
+                url_inst = quote(inst, safe='')
+                url_std  = quote(std, safe='')
+                href = f"?sel_date={url_date}&sel_inst={url_inst}&sel_std={url_std}"
                 row_cells.append(
-                    f'<td style="background:{cell_bg}">{inner}</td>'
+                    f'<td class="clickable" style="background:{cell_bg}">'
+                    f'<a href="{href}">{inner}</a></td>'
                 )
             else:
                 row_cells.append(
@@ -346,6 +415,16 @@ if csv_rows:
 # ============================================================
 st.divider()
 st.markdown("### 👤 生徒別 集計")
+
+col_sm2, _ = st.columns([2, 5])
+cur_idx = months_available.index(selected_month) if selected_month in months_available else 0
+new_sum_month = col_sm2.selectbox(
+    "月を選択（集計）", months_available, index=cur_idx, key='sm_month_sum'
+)
+# 生徒別集計で月を変えたら上部の月選択にも反映して再描画
+if new_sum_month != selected_month:
+    st.session_state['sm_month'] = new_sum_month
+    st.rerun()
 
 summary_rows = []
 for inst, stds in columns_by_inst.items():
