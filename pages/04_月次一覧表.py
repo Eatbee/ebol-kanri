@@ -8,11 +8,12 @@ import pandas as pd
 import sys
 import os
 from datetime import date, datetime
+from streamlit_js_eval import streamlit_js_eval
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
     INSTRUCTORS, STUDENTS_BY_INSTRUCTOR,
-    load_records, save_records, load_schedules, match_record,
+    load_records, save_records, delete_record, load_schedules, match_record,
     load_locks, WEEKDAY_MAP, is_month_locked,
 )
 
@@ -228,6 +229,8 @@ def build_table():
 }
 .lt tbody tr:hover td { filter: brightness(0.95); }
 .lt .wknd { color: #dc2626; }
+.lt .clickable { cursor: pointer; }
+.lt .clickable:hover { outline: 2px solid #2b6be6; outline-offset: -2px; }
 </style>
 """
     rows = [f'<div class="lt-wrap">{css}<table class="lt">']
@@ -292,8 +295,10 @@ def build_table():
                     )
                 cell_bg = bg_colors[0] if len(bg_colors) == 1 else inst_cell_color
                 inner = '<hr style="margin:2px 0;border-color:#ccc">'.join(parts)
+                cell_val = f"{d_str}__{inst}__{std}"
                 row_cells.append(
-                    f'<td style="background:{cell_bg}">{inner}</td>'
+                    f'<td class="clickable" style="background:{cell_bg}" '
+                    f"onclick=\"window._ltClick='{cell_val}|'+Date.now()\">{inner}</td>"
                 )
             else:
                 row_cells.append(
@@ -308,7 +313,22 @@ def build_table():
 
 
 st.markdown("### 📋 予定・実績 一覧表")
+st.caption("セルをクリックすると下部に実績詳細が表示されます")
 st.markdown(build_table(), unsafe_allow_html=True)
+
+# セルクリック値をJSから取得（Promiseポーリングでiframe→親ウィンドウを監視）
+_clicked = streamlit_js_eval(
+    js_expressions="""new Promise(function(r){(function c(){var v=window.parent._ltClick;if(v&&v!==''){window.parent._ltClick='';r(v);}else{setTimeout(c,300);}})();})""",
+    key="lt_click"
+)
+if _clicked and isinstance(_clicked, str) and '__' in _clicked:
+    _val = _clicked.split('|')[0] if '|' in _clicked else _clicked
+    _parts = _val.split('__')
+    if len(_parts) == 3:
+        st.session_state['_sel'] = {'date': _parts[0], 'inst': _parts[1], 'std': _parts[2]}
+        st.session_state.pop('_edit_mode', None)
+        st.session_state.pop('_confirm_delete', None)
+        st.rerun()
 
 # ============================================================
 # CSV エクスポート
@@ -402,140 +422,127 @@ if summary_rows:
     st.dataframe(styled_sum, use_container_width=True, hide_index=True)
 
 # ============================================================
-# 実績詳細・修正エリア
+# 実績詳細・修正エリア（セルクリックで選択）
 # ============================================================
-st.divider()
-st.markdown("### 🔍 実績の詳細確認・修正")
-st.caption("日付と生徒を選ぶと実績の内容を確認・修正・削除できます")
+_sel = st.session_state.get('_sel')
 
-_dates_in_month = sorted(set(s['scheduled_date'] for s in month_schedules))
-if not _dates_in_month:
-    st.info("この月にデータがありません。")
-else:
-    _da_col, _st_col = st.columns(2)
-    _sel_d = _da_col.selectbox(
-        "日付を選択", ['─'] + _dates_in_month, key='detail_sel_date'
+if _sel:
+    st.divider()
+    _sel_d    = _sel['date']
+    _d_inst   = _sel['inst']
+    _d_std    = _sel['std']
+
+    _hcol, _ccol = st.columns([5, 1])
+    _hcol.markdown(f"### 🔍 {_d_std}（{_d_inst}） — {_sel_d}")
+    if _ccol.button("✕ 閉じる", key="btn_close_detail"):
+        st.session_state.pop('_sel', None)
+        st.session_state.pop('_edit_mode', None)
+        st.session_state.pop('_confirm_delete', None)
+        st.rerun()
+
+    _day_scheds = [s for s in month_schedules if s['scheduled_date'] == _sel_d]
+    _d_sched = next(
+        (s for s in _day_scheds if s['instructor'] == _d_inst and s['student'] == _d_std),
+        None
     )
+    _d_rec = next(
+        (r for r in records_all
+         if r['date'] == _sel_d and r['instructor'] == _d_inst and r['student'] == _d_std),
+        None
+    )
+    _d_locked = is_month_locked(_sel_d)
 
-    if _sel_d != '─':
-        _day_scheds = [s for s in month_schedules if s['scheduled_date'] == _sel_d]
-        _pair_opts  = [f"{s['instructor']} / {s['student']}" for s in _day_scheds]
-        _sel_pair   = _st_col.selectbox("講師 / 生徒", _pair_opts, key='detail_sel_pair')
+    if _d_sched and _d_sched.get('time'):
+        st.write(f"時刻: {_d_sched['time']}")
 
-        if _sel_pair:
-            _d_inst = _sel_pair.split(' / ')[0]
-            _d_std  = _sel_pair.split(' / ')[1]
+    if _d_rec:
+        if not st.session_state.get('_edit_mode'):
+            # ── 参照表示 ──
+            _icon = '✅' if _d_rec['status'] == '実施済' else '❌'
+            st.write(f"状態: {_icon} {_d_rec['status']}")
+            if _d_rec.get('song'):
+                st.write(f"実施曲: {_d_rec['song']}")
+            if _d_rec.get('comment'):
+                st.markdown("**コメント**")
+                st.text_area("", value=_d_rec['comment'], height=100,
+                             disabled=True, label_visibility="collapsed",
+                             key="detail_view_comment")
+            st.caption(f"登録: {_d_rec.get('added_at', '')}")
 
-            # スケジュール・実績を取得
-            _d_sched = next(
-                (s for s in _day_scheds
-                 if s['instructor'] == _d_inst and s['student'] == _d_std),
-                None
-            )
-            _d_rec = next(
-                (r for r in records_all
-                 if r['date'] == _sel_d and r['instructor'] == _d_inst and r['student'] == _d_std),
-                None
-            )
-            _d_locked = is_month_locked(_sel_d)
-
-            st.markdown(f"#### {_d_std}（{_d_inst}） — {_sel_d}")
-            if _d_sched and _d_sched.get('time'):
-                st.write(f"時刻: {_d_sched['time']}")
-
-            if _d_rec:
-                if not st.session_state.get('_edit_mode'):
-                    # ── 参照表示 ──
-                    _icon = '✅' if _d_rec['status'] == '実施済' else '❌'
-                    st.write(f"状態: {_icon} {_d_rec['status']}")
-                    if _d_rec.get('song'):
-                        st.write(f"実施曲: {_d_rec['song']}")
-                    if _d_rec.get('comment'):
-                        st.markdown("**コメント**")
-                        st.text_area("", value=_d_rec['comment'], height=100,
-                                     disabled=True, label_visibility="collapsed",
-                                     key="detail_view_comment")
-                    st.caption(f"登録: {_d_rec.get('added_at', '')}")
-
-                    if _d_locked:
-                        st.warning("🔒 ロック中のため修正・削除できません")
-                    elif not st.session_state.get('_confirm_delete'):
-                        _ba, _bb = st.columns(2)
-                        if _ba.button("✏️ 修正する", key="btn_edit"):
-                            st.session_state['_edit_mode'] = True
-                            st.rerun()
-                        if _bb.button("🗑️ 削除する", key="btn_delete"):
-                            st.session_state['_confirm_delete'] = True
-                            st.rerun()
-                    else:
-                        st.error("この実績記録を削除しますか？（取り消せません）")
-                        _dc1, _dc2 = st.columns(2)
-                        if _dc1.button("削除する", type="primary", key="btn_do_delete"):
-                            _recs = load_records()
-                            _recs = [r for r in _recs if r['id'] != _d_rec['id']]
-                            save_records(_recs)
-                            st.session_state.pop('_confirm_delete', None)
-                            st.rerun()
-                        if _dc2.button("やめる", key="btn_cancel_delete"):
-                            st.session_state.pop('_confirm_delete', None)
-                            st.rerun()
-                else:
-                    # ── 修正フォーム ──
-                    st.info("修正して「保存する」を押してください。日付を変えると古い記録は削除されます。")
-                    _new_date = st.date_input(
-                        "実施日", value=date(*map(int, _sel_d.split('/'))),
-                        min_value=date(2025, 10, 1), max_value=date(2027, 3, 31),
-                        format="YYYY/MM/DD", key="edit_date"
-                    )
-                    _new_status_sel = st.radio(
-                        "実施状況", ['✅ 実施済', '❌ キャンセル'],
-                        index=0 if _d_rec['status'] == '実施済' else 1,
-                        horizontal=True, key="edit_status"
-                    )
-                    _new_status  = '実施済' if _new_status_sel.startswith('✅') else 'キャンセル'
-                    _new_song    = st.text_input("実施曲", value=_d_rec.get('song', ''), key="edit_song")
-                    _new_comment = st.text_area("コメント", value=_d_rec.get('comment', ''),
-                                               height=100, key="edit_comment")
-                    _sv1, _sv2 = st.columns(2)
-                    if _sv1.button("💾 保存する", type="primary", key="btn_save_edit"):
-                        _new_date_str = _new_date.strftime('%Y/%m/%d')
-                        _new_id       = f"{_d_inst}_{_d_std}_{_new_date_str}"
-                        _new_rec_data = {
-                            'id':         _new_id,
-                            'date':       _new_date_str,
-                            'weekday':    WEEKDAY_MAP[_new_date.weekday()],
-                            'time':       _d_rec.get('time', ''),
-                            'instructor': _d_inst,
-                            'student':    _d_std,
-                            'status':     _new_status,
-                            'song':       _new_song.strip(),
-                            'comment':    _new_comment.strip(),
-                            'source':     _d_rec.get('source', 'form'),
-                            'added_at':   datetime.now().strftime('%Y/%m/%d %H:%M'),
-                        }
-                        _recs = load_records()
-                        _recs = [r for r in _recs if r['id'] != _d_rec['id']]
-                        _ei   = next((i for i, r in enumerate(_recs) if r['id'] == _new_id), None)
-                        if _ei is not None:
-                            _recs[_ei] = _new_rec_data
-                        else:
-                            _recs.append(_new_rec_data)
-                        save_records(_recs)
-                        st.session_state.pop('_edit_mode', None)
-                        st.success("保存しました")
-                        st.rerun()
-                    if _sv2.button("キャンセル", key="btn_cancel_edit"):
-                        st.session_state.pop('_edit_mode', None)
-                        st.rerun()
+            if _d_locked:
+                st.warning("🔒 ロック中のため修正・削除できません")
+            elif not st.session_state.get('_confirm_delete'):
+                _ba, _bb = st.columns(2)
+                if _ba.button("✏️ 修正する", key="btn_edit"):
+                    st.session_state['_edit_mode'] = True
+                    st.rerun()
+                if _bb.button("🗑️ 削除する", key="btn_delete"):
+                    st.session_state['_confirm_delete'] = True
+                    st.rerun()
             else:
-                # 実績なし → ステータス表示のみ
-                _st_val = '予定（未来）'
-                if _d_sched:
-                    _sd_obj = date(*map(int, _sel_d.split('/')))
-                    if _d_sched['status'] == 'cancelled':
-                        _st_val = '予定キャンセル'
-                    elif _d_sched['status'] == 'rescheduled':
-                        _st_val = '振替済'
-                    elif _sd_obj <= today:
-                        _st_val = '未報告'
-                st.info(f"実績データなし（ステータス: {_st_val}）")
+                st.error("この実績記録を削除しますか？（取り消せません）")
+                _dc1, _dc2 = st.columns(2)
+                if _dc1.button("削除する", type="primary", key="btn_do_delete"):
+                    delete_record(_d_rec['id'])
+                    st.session_state.pop('_confirm_delete', None)
+                    st.session_state.pop('_sel', None)
+                    st.rerun()
+                if _dc2.button("やめる", key="btn_cancel_delete"):
+                    st.session_state.pop('_confirm_delete', None)
+                    st.rerun()
+        else:
+            # ── 修正フォーム ──
+            st.info("修正して「保存する」を押してください。日付を変えると古い記録は削除されます。")
+            _new_date = st.date_input(
+                "実施日", value=date(*map(int, _sel_d.split('/'))),
+                min_value=date(2025, 10, 1), max_value=date(2027, 3, 31),
+                format="YYYY/MM/DD", key="edit_date"
+            )
+            _new_status_sel = st.radio(
+                "実施状況", ['✅ 実施済', '❌ キャンセル'],
+                index=0 if _d_rec['status'] == '実施済' else 1,
+                horizontal=True, key="edit_status"
+            )
+            _new_status  = '実施済' if _new_status_sel.startswith('✅') else 'キャンセル'
+            _new_song    = st.text_input("実施曲", value=_d_rec.get('song', ''), key="edit_song")
+            _new_comment = st.text_area("コメント", value=_d_rec.get('comment', ''),
+                                       height=100, key="edit_comment")
+            _sv1, _sv2 = st.columns(2)
+            if _sv1.button("💾 保存する", type="primary", key="btn_save_edit"):
+                _new_date_str = _new_date.strftime('%Y/%m/%d')
+                _new_id       = f"{_d_inst}_{_d_std}_{_new_date_str}"
+                _new_rec_data = {
+                    'id':         _new_id,
+                    'date':       _new_date_str,
+                    'weekday':    WEEKDAY_MAP[_new_date.weekday()],
+                    'time':       _d_rec.get('time', ''),
+                    'instructor': _d_inst,
+                    'student':    _d_std,
+                    'status':     _new_status,
+                    'song':       _new_song.strip(),
+                    'comment':    _new_comment.strip(),
+                    'source':     _d_rec.get('source', 'form'),
+                    'added_at':   datetime.now().strftime('%Y/%m/%d %H:%M'),
+                }
+                # 古いレコードを削除してから新しいレコードを保存
+                if _d_rec['id'] != _new_id:
+                    delete_record(_d_rec['id'])
+                save_records([_new_rec_data])
+                st.session_state.pop('_edit_mode', None)
+                st.session_state['_sel'] = {'date': _new_date_str, 'inst': _d_inst, 'std': _d_std}
+                st.success("保存しました")
+                st.rerun()
+            if _sv2.button("キャンセル", key="btn_cancel_edit"):
+                st.session_state.pop('_edit_mode', None)
+                st.rerun()
+    else:
+        _st_val = '予定（未来）'
+        if _d_sched:
+            _sd_obj = date(*map(int, _sel_d.split('/')))
+            if _d_sched['status'] == 'cancelled':
+                _st_val = '予定キャンセル'
+            elif _d_sched['status'] == 'rescheduled':
+                _st_val = '振替済'
+            elif _sd_obj <= today:
+                _st_val = '未報告'
+        st.info(f"実績データなし（ステータス: {_st_val}）")
