@@ -325,9 +325,10 @@ st.markdown("### 📋 予定・実績 一覧表")
 st.caption("セルをクリックすると下部に実績詳細が表示されます")
 st.markdown(build_table(), unsafe_allow_html=True)
 
-# セルクリック値をJSから取得（postMessageでiframeに通知→Promise解決）
+# セルクリック値をJSから取得
+# postMessage受信 → Streamlit.setComponentValue() を直接呼び出す（Promiseは使わない）
 _clicked = streamlit_js_eval(
-    js_expressions="""new Promise(function(r){window.addEventListener('message',function h(e){if(e.data&&typeof e.data._ltc==='string'){window.removeEventListener('message',h);r(e.data._ltc);}},false);})""",
+    js_expressions="""(function(){window.addEventListener('message',function(e){if(e.data&&typeof e.data._ltc==='string'&&e.data._ltc!==''){Streamlit.setComponentValue(e.data._ltc);}},false);})()""",
     key="lt_click"
 )
 if _clicked and isinstance(_clicked, str) and '__' in _clicked:
