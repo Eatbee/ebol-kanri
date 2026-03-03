@@ -102,7 +102,6 @@ if st.button("📤 報告を送信する", type="primary", use_container_width=T
         'instructor': instructor,
         'student':    student,
         'status':     status_val,
-        'song':       song.strip(),
         'comment':    comment.strip(),
         'source':     'form',
         'added_at':   datetime.now().strftime('%Y/%m/%d %H:%M'),
