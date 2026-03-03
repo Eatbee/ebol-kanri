@@ -9,6 +9,7 @@ import sys
 import os
 from datetime import date, datetime
 from urllib.parse import quote
+import streamlit.components.v1 as components
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
@@ -302,7 +303,7 @@ def build_table():
                 url = f"?sel={cell_val}&auth={_auth_token}"
                 row_cells.append(
                     f'<td class="clickable" style="background:{cell_bg}" '
-                    f'onclick="window.location.href=\'{url}\'">'
+                    f'onclick="window.parent.location.href=\'{url}\'">'
                     f'{inner}</td>'
                 )
             else:
@@ -319,7 +320,8 @@ def build_table():
 
 st.markdown("### 📋 予定・実績 一覧表")
 st.caption("セルをクリックすると下部に実績詳細が表示されます")
-st.markdown(build_table(), unsafe_allow_html=True)
+_table_height = len(all_dates) * 44 + 130
+components.html(build_table(), height=_table_height, scrolling=False)
 
 # セルクリックはURLクエリパラメータ ?sel= で受け取る
 _sel_param = st.query_params.get("sel", "")
