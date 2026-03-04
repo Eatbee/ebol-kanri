@@ -8,12 +8,13 @@ import pandas as pd
 import sys
 import os
 from datetime import date, datetime
+from urllib.parse import quote
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
     INSTRUCTORS, STUDENTS_BY_INSTRUCTOR,
     load_records, save_records, delete_record, load_schedules, match_record,
-    load_locks, WEEKDAY_MAP, is_month_locked,
+    load_locks, WEEKDAY_MAP, is_month_locked, compute_auth_token,
 )
 
 st.title("📊 月次一覧表")
@@ -48,6 +49,7 @@ schedules_all = load_schedules()
 records_all   = load_records()
 locks         = load_locks()
 today         = date.today()
+_auth_token   = compute_auth_token()
 
 # ============================================================
 # ステータス判定
@@ -177,68 +179,52 @@ for s in month_schedules:
     sched_lookup.setdefault(key, []).append(s)
 
 # ============================================================
-# HTMLテーブル構築
+# HTMLテーブル構築（各セルを <form> でクリック可能に）
 # ============================================================
 def build_table():
     css = """
 <style>
 .lt-wrap { overflow-x: auto; margin-bottom: 12px; }
-.lt {
-    border-collapse: collapse;
-    font-size: 12.5px;
-    white-space: nowrap;
-    width: 100%;
-}
-.lt th, .lt td {
-    border: 1px solid #d1d5db;
-    padding: 5px 10px;
-    text-align: center;
-    vertical-align: middle;
-}
+.lt { border-collapse: collapse; font-size: 12.5px; white-space: nowrap; width: 100%; }
+.lt th, .lt td { border: 1px solid #d1d5db; padding: 5px 10px; text-align: center; vertical-align: middle; }
 .lt thead th { font-weight: bold; position: sticky; top: 0; z-index: 2; }
 .lt .date-col {
-    text-align: left !important;
-    min-width: 110px;
-    font-weight: 600;
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    background: #f1f5f9 !important;
+    text-align: left !important; min-width: 110px; font-weight: 600;
+    position: sticky; left: 0; z-index: 1; background: #f1f5f9 !important;
 }
 .lt tbody tr:hover td { filter: brightness(0.95); }
 .lt .wknd { color: #dc2626; }
+.lt td.clickable { padding: 0; }
+.lt td.clickable form { margin: 0; padding: 0; }
+.lt td.clickable button {
+    width: 100%; height: 100%; padding: 5px 10px;
+    background: none; border: none; cursor: pointer;
+    font-size: inherit; color: inherit;
+}
+.lt td.clickable button:hover { outline: 2px solid #2b6be6; outline-offset: -2px; }
 </style>
 """
     rows = [f'<div class="lt-wrap">{css}<table class="lt">']
 
-    # ── ヘッダー行1: 講師 ──
-    rows.append('<thead>')
-    rows.append('<tr>')
+    rows.append('<thead><tr>')
     rows.append('<th class="date-col" rowspan="2" style="background:#f1f5f9">日付</th>')
     for inst, stds in columns_by_inst.items():
         hc = INSTRUCTOR_COLORS.get(inst, {}).get('header', '#e5e7eb')
         rows.append(f'<th colspan="{len(stds)}" style="background:{hc}">{inst}</th>')
-    rows.append('</tr>')
-
-    # ── ヘッダー行2: 生徒 ──
-    rows.append('<tr>')
+    rows.append('</tr><tr>')
     for inst, stds in columns_by_inst.items():
         hc = INSTRUCTOR_COLORS.get(inst, {}).get('header', '#e5e7eb')
         for std in stds:
             rows.append(f'<th style="background:{hc};font-weight:normal">{std}</th>')
-    rows.append('</tr>')
-    rows.append('</thead>')
+    rows.append('</tr></thead><tbody>')
 
-    # ── データ行 ──
-    rows.append('<tbody>')
     for d_str in all_dates:
-        d_obj   = date(*map(int, d_str.split('/')))
-        wd      = WEEKDAY_MAP[d_obj.weekday()]
-        wd_cls  = ' class="wknd"' if wd in ('土', '日') else ''
+        d_obj  = date(*map(int, d_str.split('/')))
+        wd     = WEEKDAY_MAP[d_obj.weekday()]
+        wd_cls = ' class="wknd"' if wd in ('土', '日') else ''
         date_display = f'{int(d_str[5:7])}/{int(d_str[8:10])}（{wd}）'
-        date_cell = f'<td class="date-col"><span{wd_cls}>{date_display}</span></td>'
+        row_cells = [f'<td class="date-col"><span{wd_cls}>{date_display}</span></td>']
 
-        row_cells = [date_cell]
         for inst, std in all_col_pairs:
             key = (inst, std, d_str)
             inst_cell_color = INSTRUCTOR_COLORS.get(inst, {}).get('cell', '#f9fafb')
@@ -257,7 +243,19 @@ def build_table():
                     )
                 cell_bg = bg_colors[0] if len(bg_colors) == 1 else inst_cell_color
                 inner   = '<hr style="margin:2px 0;border-color:#ccc">'.join(parts)
-                row_cells.append(f'<td style="background:{cell_bg}">{inner}</td>')
+                d_enc   = quote(d_str)
+                i_enc   = quote(inst)
+                s_enc   = quote(std)
+                row_cells.append(
+                    f'<td class="clickable" style="background:{cell_bg}">'
+                    f'<form method="get" style="margin:0;padding:0">'
+                    f'<input type="hidden" name="sel_d" value="{d_enc}">'
+                    f'<input type="hidden" name="sel_i" value="{i_enc}">'
+                    f'<input type="hidden" name="sel_s" value="{s_enc}">'
+                    f'<input type="hidden" name="auth" value="{_auth_token}">'
+                    f'<button type="submit" style="background:{cell_bg}">{inner}</button>'
+                    f'</form></td>'
+                )
             else:
                 row_cells.append('<td style="background:#f8fafc;color:#d1d5db;font-size:11px">─</td>')
 
@@ -267,38 +265,8 @@ def build_table():
     return '\n'.join(rows)
 
 st.markdown("### 📋 予定・実績 一覧表")
+st.caption("セルをクリックすると下部に実績詳細が表示されます")
 st.markdown(build_table(), unsafe_allow_html=True)
-
-# ============================================================
-# 実績の選択UI（セルクリックの代替）
-# ============================================================
-st.divider()
-st.markdown("### 🔍 実績の確認・修正・削除")
-st.caption("下で日付・講師・生徒を選んで「表示」を押してください")
-
-# 選択肢を作成
-date_options = all_dates
-_sc1, _sc2, _sc3, _sc4 = st.columns([2, 2, 2, 1])
-
-sel_date = _sc1.selectbox(
-    "日付",
-    date_options,
-    format_func=lambda d: f"{int(d[5:7])}/{int(d[8:10])}（{WEEKDAY_MAP[date(*map(int, d.split('/'))).weekday()]}）",
-    key="sel_detail_date"
-)
-
-inst_options = sorted(set(inst for (inst, std, d) in sched_lookup if d == sel_date))
-sel_inst = _sc2.selectbox("講師", inst_options, key="sel_detail_inst") if inst_options else None
-
-std_options = [std for (inst, std, d) in sched_lookup if d == sel_date and inst == sel_inst] if sel_inst else []
-sel_std = _sc3.selectbox("生徒", std_options, key="sel_detail_std") if std_options else None
-
-if _sc4.button("表示", key="btn_show_detail", use_container_width=True):
-    if sel_inst and sel_std:
-        st.session_state["_sel"] = {"date": sel_date, "inst": sel_inst, "std": sel_std}
-        st.session_state.pop("_edit_mode", None)
-        st.session_state.pop("_confirm_delete", None)
-        st.rerun()
 
 # ============================================================
 # CSV エクスポート
@@ -347,7 +315,6 @@ sum_month = col_sm2.selectbox(
     "月を選択（集計）", months_available, index=cur_idx, key='sm_month_sum'
 )
 
-# 集計用データ（上部の月選択とは独立）
 sum_schedules = [s for s in schedules_all if s['scheduled_date'].startswith(sum_month)]
 sum_existing_keys = set(
     (s['instructor'], s['student'], s['scheduled_date']) for s in sum_schedules
@@ -378,10 +345,7 @@ for inst in INSTRUCTORS:
 summary_rows = []
 for inst, stds in sum_columns_by_inst.items():
     for std in stds:
-        std_scheds = [
-            s for s in sum_schedules
-            if s['instructor'] == inst and s['student'] == std
-        ]
+        std_scheds = [s for s in sum_schedules if s['instructor'] == inst and s['student'] == std]
         cnts = {k: 0 for k in STATUS_CONFIG}
         for s in std_scheds:
             sv = get_status(s)
@@ -433,9 +397,10 @@ if _sel:
         st.session_state.pop('_confirm_delete', None)
         st.rerun()
 
-    _day_scheds = [s for s in month_schedules if s['scheduled_date'] == _sel_d]
+    # _sel の月が表示中の月と違う場合は全レコードから検索
     _d_sched = next(
-        (s for s in _day_scheds if s['instructor'] == _d_inst and s['student'] == _d_std),
+        (s for s in schedules_all
+         if s['scheduled_date'] == _sel_d and s['instructor'] == _d_inst and s['student'] == _d_std),
         None
     )
     _d_rec = next(
@@ -452,8 +417,7 @@ if _sel:
         if not st.session_state.get('_edit_mode'):
             _icon = '✅' if _d_rec['status'] == '実施済' else '❌'
             st.write(f"状態: {_icon} {_d_rec['status']}")
-            if _d_rec.get('song'):
-                st.write(f"実施曲: {_d_rec['song']}")
+            st.write(f"実施曲: {_d_rec.get('song', '') or '（未入力）'}")
             if _d_rec.get('comment'):
                 st.markdown("**コメント**")
                 st.text_area("", value=_d_rec['comment'], height=100,
