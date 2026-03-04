@@ -12,7 +12,8 @@ from datetime import date, datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
     INSTRUCTORS, STUDENTS_BY_INSTRUCTOR,
-    load_records, save_records, delete_record, load_schedules, match_record,
+    load_records, save_records, delete_record, delete_schedule,
+    load_schedules, match_record,
     load_locks, WEEKDAY_MAP, is_month_locked,
 )
 
@@ -303,8 +304,6 @@ if _sel:
     )
     _d_locked = is_month_locked(_sel_d)
 
-    st.caption(f"[debug] 日付={_sel_d} 講師={_d_inst} 生徒={_d_std} 実績={'あり' if _d_rec else 'なし'} ロック={_d_locked}")
-
     if _d_sched and _d_sched.get('time'):
         st.write(f"時刻: {_d_sched['time']}")
 
@@ -395,6 +394,23 @@ if _sel:
             elif _sd_obj <= today:
                 _st_val = '未報告'
         st.info(f"実績データなし（ステータス: {_st_val}）")
+
+        if _d_sched and not _d_locked:
+            if not st.session_state.get('_confirm_delete_sched'):
+                if st.button("🗑️ この予定を削除する", key="btn_delete_sched"):
+                    st.session_state['_confirm_delete_sched'] = True
+                    st.rerun()
+            else:
+                st.error("この予定を削除しますか？（取り消せません）")
+                _ds1, _ds2 = st.columns(2)
+                if _ds1.button("削除する", type="primary", key="btn_do_delete_sched"):
+                    delete_schedule(_d_sched['id'])
+                    st.session_state.pop('_confirm_delete_sched', None)
+                    st.session_state.pop('_sel', None)
+                    st.rerun()
+                if _ds2.button("やめる", key="btn_cancel_delete_sched"):
+                    st.session_state.pop('_confirm_delete_sched', None)
+                    st.rerun()
 
 # ============================================================
 # CSV エクスポート

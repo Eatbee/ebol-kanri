@@ -54,6 +54,11 @@ def delete_record(record_id: str):
     sb = get_supabase()
     sb.table("records").delete().eq("id", record_id).execute()
 
+def delete_schedule(schedule_id: str):
+    """特定スケジュールを Supabase から削除する。"""
+    sb = get_supabase()
+    sb.table("schedules").delete().eq("id", schedule_id).execute()
+
 # ============================================================
 # locks
 # ============================================================
