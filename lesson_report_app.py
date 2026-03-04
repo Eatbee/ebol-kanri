@@ -24,12 +24,6 @@ if not st.session_state.get("teacher_auth", False):
     _url_auth = st.query_params.get("auth", "")
     if _url_auth and is_valid_auth_token(_url_auth):
         st.session_state.teacher_auth = True
-        # セルクリックで渡された日付・講師・生徒を session_state に保存
-        _sel_d = st.query_params.get("sel_d", "")
-        _sel_i = st.query_params.get("sel_i", "")
-        _sel_s = st.query_params.get("sel_s", "")
-        if _sel_d and _sel_i and _sel_s:
-            st.session_state["_sel"] = {"date": _sel_d, "inst": _sel_i, "std": _sel_s}
         st.rerun()
 
     st.title("🔑 EBOL英会話 ログイン")
