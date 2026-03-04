@@ -448,6 +448,34 @@ if csv_rows:
     )
 
 # ============================================================
+# コメント一覧
+# ============================================================
+st.divider()
+st.markdown("### 💬 コメント一覧")
+
+comment_rows = [r for r in month_records if r.get('comment', '').strip()]
+comment_rows_sorted = sorted(comment_rows, key=lambda r: r['date'])
+
+if comment_rows_sorted:
+    for r in comment_rows_sorted:
+        d_obj = date(*map(int, r['date'].split('/')))
+        wd = WEEKDAY_MAP[d_obj.weekday()]
+        icon = '✅' if r['status'] == '実施済' else '❌'
+        song_str = f"　実施曲: {r['song']}" if r.get('song', '').strip() else ''
+        st.markdown(
+            f"**{int(r['date'][5:7])}/{int(r['date'][8:10])}（{wd}）　"
+            f"{r['instructor']} / {r['student']}　{icon} {r['status']}{song_str}**"
+        )
+        st.markdown(
+            f'<div style="background:#f8fafc;border-left:3px solid #94a3b8;'
+            f'padding:8px 14px;border-radius:4px;margin-bottom:12px;'
+            f'font-size:14px;white-space:pre-wrap">{r["comment"]}</div>',
+            unsafe_allow_html=True
+        )
+else:
+    st.info("この月にコメントが登録されたレコードはありません。")
+
+# ============================================================
 # 生徒別集計テーブル
 # ============================================================
 st.divider()
