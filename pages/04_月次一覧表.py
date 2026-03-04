@@ -355,8 +355,8 @@ if _sel:
                 horizontal=True, key="edit_status"
             )
             _new_status  = '実施済' if _new_status_sel.startswith('✅') else 'キャンセル'
-            _new_song    = st.text_input("実施曲", value=_d_rec.get('song', ''), key="edit_song")
-            _new_comment = st.text_area("コメント", value=_d_rec.get('comment', ''),
+            _new_song    = st.text_input("実施曲", value=_d_rec.get('song') or '', key="edit_song")
+            _new_comment = st.text_area("コメント", value=_d_rec.get('comment') or '',
                                         height=100, key="edit_comment")
             _sv1, _sv2 = st.columns(2)
             if _sv1.button("💾 保存する", type="primary", key="btn_save_edit"):
