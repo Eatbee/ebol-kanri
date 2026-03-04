@@ -54,9 +54,9 @@ pg = st.navigation(
             st.Page("pages/03_予約管理.py",          title="予約管理（フォーム）", icon="📅"),
         ],
         "📋 一覧表": [
-            admin_page,
             st.Page("pages/04_月次一覧表.py", title="月次一覧表",   icon="📊"),
             st.Page("pages/05_レッスン進捗.py", title="レッスン進捗", icon="📖"),
+            admin_page,
         ],
     },
     position="hidden",  # サイドバーを使わない
@@ -69,11 +69,11 @@ with c1:
 with c2:
     st.page_link("pages/03_予約管理.py", label="📅 予約管理", use_container_width=True)
 with c3:
-    st.page_link(admin_path, label="🔑 管理者用", use_container_width=True)
-with c4:
     st.page_link("pages/04_月次一覧表.py", label="📊 月次一覧表", use_container_width=True)
-with c5:
+with c4:
     st.page_link("pages/05_レッスン進捗.py", label="📖 レッスン進捗", use_container_width=True)
+with c5:
+    st.page_link(admin_path, label="🔑 管理者用", use_container_width=True)
 
 st.divider()
 
