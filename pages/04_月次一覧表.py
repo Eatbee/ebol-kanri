@@ -461,7 +461,7 @@ if comment_rows_sorted:
         d_obj = date(*map(int, r['date'].split('/')))
         wd = WEEKDAY_MAP[d_obj.weekday()]
         icon = '✅' if r['status'] == '実施済' else '❌'
-        song_str = f"　実施曲: {r['song']}" if r.get('song', '').strip() else ''
+        song_str = f"　実施曲: {r['song']}" if (r.get('song') or '').strip() else ''
         st.markdown(
             f"**{int(r['date'][5:7])}/{int(r['date'][8:10])}（{wd}）　"
             f"{r['instructor']} / {r['student']}　{icon} {r['status']}{song_str}**"
