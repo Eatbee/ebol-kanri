@@ -303,6 +303,8 @@ if _sel:
     )
     _d_locked = is_month_locked(_sel_d)
 
+    st.caption(f"[debug] 日付={_sel_d} 講師={_d_inst} 生徒={_d_std} 実績={'あり' if _d_rec else 'なし'} ロック={_d_locked}")
+
     if _d_sched and _d_sched.get('time'):
         st.write(f"時刻: {_d_sched['time']}")
 
