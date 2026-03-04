@@ -490,6 +490,7 @@ for inst in INSTRUCTORS:
 
 summary_rows = []
 for inst, stds in sum_columns_by_inst.items():
+    inst_totals = {k: 0 for k in ['予定合計', '✅ 実施済', '❌ キャンセル', '⏳ 未報告', '🗓 未来予定', '🔄 振替済']}
     for std in stds:
         std_scheds = [s for s in sum_schedules if s['instructor'] == inst and s['student'] == std]
         cnts = {k: 0 for k in STATUS_CONFIG}
@@ -497,7 +498,7 @@ for inst, stds in sum_columns_by_inst.items():
             sv = get_status(s)
             if sv in cnts:
                 cnts[sv] += 1
-        summary_rows.append({
+        row = {
             '講師':          inst,
             '生徒':          std,
             '予定合計':      len(std_scheds),
@@ -506,20 +507,39 @@ for inst, stds in sum_columns_by_inst.items():
             '⏳ 未報告':     cnts['未報告'],
             '🗓 未来予定':   cnts['予定'],
             '🔄 振替済':     cnts['振替済'],
-        })
+        }
+        summary_rows.append(row)
+        for k in inst_totals:
+            inst_totals[k] += row[k]
+    summary_rows.append({
+        '講師':          inst,
+        '生徒':          '【小計】',
+        **inst_totals,
+    })
 
 if summary_rows:
     df_sum = pd.DataFrame(summary_rows)
 
     def style_summary(row):
         inst    = row['講師']
-        base_bg = INSTRUCTOR_COLORS.get(inst, {}).get('cell', '#ffffff')
-        styles  = [f'background-color:{base_bg}'] * len(row)
+        is_subtotal = row['生徒'] == '【小計】'
+        base_bg = INSTRUCTOR_COLORS.get(inst, {}).get('header' if is_subtotal else 'cell', '#ffffff')
+        bold    = 'font-weight:bold;' if is_subtotal else ''
+        styles  = [f'background-color:{base_bg};{bold}'] * len(row)
         cols    = list(df_sum.columns)
-        if row.get('⏳ 未報告', 0) > 0:
+        if not is_subtotal and row.get('⏳ 未報告', 0) > 0:
             idx = cols.index('⏳ 未報告')
             styles[idx] = 'background-color:#fff3cd;font-weight:bold;color:#856404'
         return styles
 
     styled_sum = df_sum.style.apply(style_summary, axis=1)
     st.dataframe(styled_sum, use_container_width=True, hide_index=True)
+
+    csv_sum = df_sum.to_csv(index=False, encoding='utf-8-sig')
+    st.download_button(
+        label=f"📥 {sum_month} の生徒別集計をCSVでダウンロード",
+        data=csv_sum,
+        file_name=f"生徒別集計_{sum_month.replace('/', '')}.csv",
+        mime="text/csv",
+        key="dl_summary_csv",
+    )
