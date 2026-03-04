@@ -14,7 +14,7 @@ from datetime import date, datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
     INSTRUCTORS, STUDENTS_BY_INSTRUCTOR, WEEKDAY_MAP,
-    load_schedules, save_schedules,
+    load_schedules, save_schedules, load_locks,
     generate_recurring_dates, is_month_locked,
 )
 
@@ -135,7 +135,11 @@ with tab1:
 
         st.success(f"**{len(dates_list)} 件**が生成されます（新規: {len(new_dates)} 件 / 重複スキップ: {len(dup_dates)} 件）")
 
-        locked_dates = [d for d in new_dates if is_month_locked(d['date'])]
+        _locks = load_locks()
+        def _is_locked(date_str):
+            return _locks.get(date_str[:7], {}).get('locked', False)
+
+        locked_dates = [d for d in new_dates if _is_locked(d['date'])]
         if locked_dates:
             st.warning(f"⚠️ うち {len(locked_dates)} 件はロック済み月のためスキップされます")
 
@@ -145,7 +149,7 @@ with tab1:
                 tstr = f" {d['time']}" if d['time'] else ""
                 if rid in existing_ids:
                     st.write(f"  ⚠️ {d['date']}（{d['weekday']}）{tstr}　← **重複**（スキップ）")
-                elif is_month_locked(d['date']):
+                elif _is_locked(d['date']):
                     st.write(f"  🔒 {d['date']}（{d['weekday']}）{tstr}　← **ロック中**（スキップ）")
                 else:
                     st.write(f"  ✅ {d['date']}（{d['weekday']}）{tstr}")
@@ -155,7 +159,7 @@ with tab1:
             existing_ids2 = {s['id'] for s in schedules}
             added = 0
             for d in new_dates:
-                if is_month_locked(d['date']):
+                if _is_locked(d['date']):
                     continue
                 sid = f"{params['instructor']}_{params['student']}_{d['date']}"
                 if sid in existing_ids2:
@@ -263,9 +267,10 @@ with tab2:
             existing  = {s['id']: idx for idx, s in enumerate(schedules)}
             orig_str  = original_date2.strftime('%Y/%m/%d') if is_makeup and original_date2 else None
 
+            _locks_t2 = load_locks()
             added_c, overwrite_c, locked_c = 0, 0, 0
             for d in st.session_state.t2_date_list:
-                if is_month_locked(d['date']):
+                if _locks_t2.get(d['date'][:7], {}).get('locked', False):
                     locked_c += 1
                     continue
                 wd  = WEEKDAY_MAP[date(*map(int, d['date'].split('/'))).weekday()]
