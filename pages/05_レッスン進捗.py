@@ -34,26 +34,28 @@ _default_idx = all_months.index(_today_month) if _today_month in all_months else
 # ============================================================
 # 絞り込みUI
 # ============================================================
-col_m, col_sort, _ = st.columns([2, 2, 3])
+col_m, col_std, _ = st.columns([2, 2, 3])
 selected_month = col_m.selectbox("月を選択", all_months, index=_default_idx, key="prog_month")
-sort_by = col_sort.selectbox("並び順", ["日付順", "生徒名順"], key="prog_sort")
+
+month_records = [r for r in records_all if r['date'].startswith(selected_month)]
+comment_rows  = [r for r in month_records if (r.get('comment') or '').strip()]
+
+student_options = ["全員"] + sorted(set(r['student'] for r in comment_rows))
+sel_student = col_std.selectbox("生徒を絞り込む", student_options, key="prog_student")
 
 st.divider()
 
 # ============================================================
 # 対象レコード
 # ============================================================
-month_records = [r for r in records_all if r['date'].startswith(selected_month)]
-comment_rows  = [r for r in month_records if (r.get('comment') or '').strip()]
-
 if not comment_rows:
     st.info("この月にコメントが登録されたレコードはありません。")
     st.stop()
 
-if sort_by == "生徒名順":
-    comment_rows = sorted(comment_rows, key=lambda r: (r['student'], r['date']))
-else:
-    comment_rows = sorted(comment_rows, key=lambda r: r['date'])
+if sel_student != "全員":
+    comment_rows = [r for r in comment_rows if r['student'] == sel_student]
+
+comment_rows = sorted(comment_rows, key=lambda r: r['date'])
 
 st.caption(f"{len(comment_rows)} 件のコメントがあります")
 
