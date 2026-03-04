@@ -326,14 +326,16 @@ if _sel:
                 if _ba.button("✏️ 修正する", key="btn_edit"):
                     st.session_state['_edit_mode'] = True
                     st.rerun()
-                if _d_sched and _bb.button("🗑️ 予定を削除する", key="btn_delete"):
+                if _bb.button("🗑️ 削除する", key="btn_delete"):
                     st.session_state['_confirm_delete'] = True
                     st.rerun()
             else:
-                st.error("この予定を削除しますか？実績（コメントなど）は残ります。（取り消せません）")
+                st.error("予定と実績をまとめて削除しますか？（取り消せません）")
                 _dc1, _dc2 = st.columns(2)
                 if _dc1.button("削除する", type="primary", key="btn_do_delete"):
-                    delete_schedule(_d_sched['id'])
+                    if _d_sched:
+                        delete_schedule(_d_sched['id'])
+                    delete_record(_d_rec['id'])
                     st.session_state.pop('_confirm_delete', None)
                     st.session_state.pop('_sel', None)
                     st.rerun()
