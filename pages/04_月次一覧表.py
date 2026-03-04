@@ -249,7 +249,7 @@ st.markdown(build_table(), unsafe_allow_html=True)
 # 実績の選択・詳細表示
 # ============================================================
 st.divider()
-st.markdown("### 🔍 実績の確認・修正・削除")
+st.markdown("### 🔍 予定・実績の修正・削除")
 
 _sc1, _sc2, _sc3, _sc4 = st.columns([2, 2, 2, 1])
 
