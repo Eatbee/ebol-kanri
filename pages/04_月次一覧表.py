@@ -370,8 +370,8 @@ if _sel:
                     'instructor': _d_inst,
                     'student':    _d_std,
                     'status':     _new_status,
-                    'song':       _new_song.strip(),
-                    'comment':    _new_comment.strip(),
+                    'song':       (_new_song or '').strip(),
+                    'comment':    (_new_comment or '').strip(),
                     'source':     _d_rec.get('source', 'form'),
                     'added_at':   datetime.now().strftime('%Y/%m/%d %H:%M'),
                 }
