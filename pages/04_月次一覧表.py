@@ -38,7 +38,8 @@ STATUS_CONFIG = {
     '未報告':       {'symbol': '⏳', 'bg': '#fff3cd', 'color': '#856404', 'label': '未報告'},
     '予定':         {'symbol': '🗓',  'bg': '#e2e8f0', 'color': '#475569', 'label': '予定（未来）'},
     '予定キャンセル': {'symbol': '✂',  'bg': '#fce4ec', 'color': '#9d174d', 'label': '予定キャンセル'},
-    '振替済':       {'symbol': '🔄', 'bg': '#e0f2fe', 'color': '#0369a1', 'label': '振替済'},
+    '振替済':       {'symbol': '🔄', 'bg': '#e0f2fe', 'color': '#0369a1', 'label': '振替（未報告）'},
+    '振替報告済':   {'symbol': '✅🔄', 'bg': '#d4edda', 'color': '#155724', 'label': '振替（報告済）'},
     '─':           {'symbol': '─',  'bg': '#f8fafc', 'color': '#cbd5e1', 'label': 'レッスンなし'},
 }
 
@@ -57,7 +58,8 @@ def get_status(sched):
     if sched['status'] == 'cancelled':
         return '予定キャンセル'
     if sched['status'] == 'rescheduled':
-        return '振替済'
+        rec = match_record(sched, records_all)
+        return '振替報告済' if rec else '振替済'
     rec = match_record(sched, records_all)
     if rec:
         return rec['status']
@@ -506,7 +508,7 @@ for inst, stds in sum_columns_by_inst.items():
             '❌ キャンセル': cnts['キャンセル'] + cnts['予定キャンセル'],
             '⏳ 未報告':     cnts['未報告'],
             '🗓 未来予定':   cnts['予定'],
-            '🔄 振替済':     cnts['振替済'],
+            '🔄 振替済':     cnts['振替済'] + cnts.get('振替報告済', 0),
         }
         summary_rows.append(row)
         for k in inst_totals:
