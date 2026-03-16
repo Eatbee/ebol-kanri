@@ -185,21 +185,25 @@ for s in month_schedules:
 def build_table():
     css = """
 <style>
-.lt-wrap { overflow-x: auto; margin-bottom: 12px; }
+.lt-wrap { overflow-x: auto; overflow-y: auto; max-height: 70vh; margin-bottom: 12px; }
 .lt { border-collapse: collapse; font-size: 12.5px; white-space: nowrap; width: 100%; }
 .lt th, .lt td { border: 1px solid #d1d5db; padding: 5px 10px; text-align: center; vertical-align: middle; }
-.lt thead th { font-weight: bold; position: sticky; top: 0; z-index: 2; }
+.lt thead th { font-weight: bold; position: sticky; z-index: 3; }
+.lt thead tr:first-child th { top: 0; }
+.lt thead tr:nth-child(2) th { top: 29px; }
 .lt .date-col {
     text-align: left !important; min-width: 110px; font-weight: 600;
-    position: sticky; left: 0; z-index: 1; background: #f1f5f9 !important;
+    position: sticky; left: 0; z-index: 4;
 }
-.lt tbody tr:hover td { filter: brightness(0.95); }
+.lt tbody tr:hover td { filter: brightness(0.93); }
 .lt .wknd { color: #dc2626; }
 </style>
 """
+    STRIPE = ('#f0f4f8', '#ffffff')  # odd, even
+
     rows = [f'<div class="lt-wrap">{css}<table class="lt">']
     rows.append('<thead><tr>')
-    rows.append('<th class="date-col" rowspan="2" style="background:#f1f5f9">日付</th>')
+    rows.append('<th class="date-col" rowspan="2" style="background:#f1f5f9;position:sticky;top:0;left:0;z-index:5">日付</th>')
     for inst, stds in columns_by_inst.items():
         hc = INSTRUCTOR_COLORS.get(inst, {}).get('header', '#e5e7eb')
         rows.append(f'<th colspan="{len(stds)}" style="background:{hc}">{inst}</th>')
@@ -210,16 +214,16 @@ def build_table():
             rows.append(f'<th style="background:{hc};font-weight:normal">{std}</th>')
     rows.append('</tr></thead><tbody>')
 
-    for d_str in all_dates:
+    for row_idx, d_str in enumerate(all_dates):
         d_obj  = date(*map(int, d_str.split('/')))
         wd     = WEEKDAY_MAP[d_obj.weekday()]
         wd_cls = ' class="wknd"' if wd in ('土', '日') else ''
         date_display = f'{int(d_str[5:7])}/{int(d_str[8:10])}（{wd}）'
-        row_cells = [f'<td class="date-col"><span{wd_cls}>{date_display}</span></td>']
+        row_bg = STRIPE[row_idx % 2]
+        row_cells = [f'<td class="date-col" style="background:{row_bg}"><span{wd_cls}>{date_display}</span></td>']
 
         for inst, std in all_col_pairs:
             key = (inst, std, d_str)
-            inst_cell_color = INSTRUCTOR_COLORS.get(inst, {}).get('cell', '#f9fafb')
             if key in sched_lookup:
                 scheds = sched_lookup[key]
                 parts, bg_colors = [], []
@@ -233,11 +237,11 @@ def build_table():
                     parts.append(
                         f'<span style="color:{cfg["color"]};font-size:14px">{cfg["symbol"]}</span>{tstr}'
                     )
-                cell_bg = bg_colors[0] if len(bg_colors) == 1 else inst_cell_color
+                cell_bg = bg_colors[0] if len(bg_colors) == 1 else row_bg
                 inner   = '<hr style="margin:2px 0;border-color:#ccc">'.join(parts)
                 row_cells.append(f'<td style="background:{cell_bg}">{inner}</td>')
             else:
-                row_cells.append('<td style="background:#f8fafc;color:#d1d5db;font-size:11px">─</td>')
+                row_cells.append(f'<td style="background:{row_bg};color:#d1d5db;font-size:11px">─</td>')
 
         rows.append(f'<tr>{"".join(row_cells)}</tr>')
 
