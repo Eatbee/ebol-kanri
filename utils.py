@@ -4,6 +4,7 @@ Supabase 版 — データは Supabase PostgreSQL に保存される
 """
 
 import socket
+import unicodedata
 from datetime import date, datetime, timedelta
 
 import streamlit as st
@@ -37,10 +38,15 @@ def get_supabase() -> Client:
 # ============================================================
 # records
 # ============================================================
+def _normalize_row(row: dict) -> dict:
+    """文字列フィールドをNFC正規化（濁点分解形などを統一）"""
+    return {k: unicodedata.normalize('NFC', v) if isinstance(v, str) else v
+            for k, v in row.items()}
+
 def load_records() -> list:
     sb = get_supabase()
     res = sb.table("records").select("*").order("date", desc=True).execute()
-    return res.data or []
+    return [_normalize_row(r) for r in (res.data or [])]
 
 def save_records(records: list):
     """レコードを upsert（新規追加・更新）。削除は delete_record() を使う。"""
@@ -140,7 +146,7 @@ def load_schedules() -> list:
     """
     sb = get_supabase()
     res = sb.table("schedules").select("*").order("scheduled_date").execute()
-    return res.data or []
+    return [_normalize_row(r) for r in (res.data or [])]
 
 def save_schedules(schedules: list):
     """スケジュールを upsert（新規追加・更新）。"""

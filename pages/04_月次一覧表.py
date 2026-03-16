@@ -519,12 +519,28 @@ for inst, stds in sum_columns_by_inst.items():
         **inst_totals,
     })
 
+# 全合計行
+grand_totals = {k: 0 for k in ['予定合計', '✅ 実施済', '❌ キャンセル', '⏳ 未報告', '🗓 未来予定', '🔄 振替済']}
+for row in summary_rows:
+    if row['生徒'] == '【小計】':
+        for k in grand_totals:
+            grand_totals[k] += row[k]
+summary_rows.append({
+    '講師':  '',
+    '生徒':  '【合計】',
+    **grand_totals,
+})
+
 if summary_rows:
     df_sum = pd.DataFrame(summary_rows)
 
     def style_summary(row):
         inst    = row['講師']
         is_subtotal = row['生徒'] == '【小計】'
+        is_grand    = row['生徒'] == '【合計】'
+        if is_grand:
+            styles = ['background-color:#1e293b;color:#ffffff;font-weight:bold;'] * len(row)
+            return styles
         base_bg = INSTRUCTOR_COLORS.get(inst, {}).get('header' if is_subtotal else 'cell', '#ffffff')
         bold    = 'font-weight:bold;' if is_subtotal else ''
         styles  = [f'background-color:{base_bg};{bold}'] * len(row)
