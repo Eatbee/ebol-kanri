@@ -227,7 +227,7 @@ with tab_compare:
                 if isinstance(val, int) and val > 0:
                     return 'background-color: #fff3cd'
                 return ''
-            styled_summary = df_summary.style.applymap(highlight_unreported, subset=['未報告'])
+            styled_summary = df_summary.style.map(highlight_unreported, subset=['未報告'])
             st.dataframe(styled_summary, use_container_width=True, hide_index=True)
             st.caption("🟡 未報告 = 予定はあるがレポートが届いていない")
 
