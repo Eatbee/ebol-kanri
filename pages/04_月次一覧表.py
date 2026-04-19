@@ -496,7 +496,7 @@ for inst in INSTRUCTORS:
 
 summary_rows = []
 for inst, stds in sum_columns_by_inst.items():
-    inst_totals = {k: 0 for k in ['予定合計', '✅ 実施済', '❌ キャンセル', '⏳ 未報告', '🗓 未来予定', '🔄 振替済']}
+    inst_totals = {k: 0 for k in ['予定合計', '✅ 実施済', '❌ キャンセル', '⏳ 未報告', '🗓 未来予定']}
     for std in stds:
         std_scheds = [s for s in sum_schedules if s['instructor'] == inst and s['student'] == std]
         cnts = {k: 0 for k in STATUS_CONFIG}
@@ -508,11 +508,10 @@ for inst, stds in sum_columns_by_inst.items():
             '講師':          inst,
             '生徒':          std,
             '予定合計':      len(std_scheds),
-            '✅ 実施済':     cnts['実施済'],
+            '✅ 実施済':     cnts['実施済'] + cnts['振替済'] + cnts.get('振替報告済', 0),
             '❌ キャンセル': cnts['キャンセル'] + cnts['予定キャンセル'],
             '⏳ 未報告':     cnts['未報告'],
             '🗓 未来予定':   cnts['予定'],
-            '🔄 振替済':     cnts['振替済'] + cnts.get('振替報告済', 0),
         }
         summary_rows.append(row)
         for k in inst_totals:
@@ -524,7 +523,7 @@ for inst, stds in sum_columns_by_inst.items():
     })
 
 # 全合計行
-grand_totals = {k: 0 for k in ['予定合計', '✅ 実施済', '❌ キャンセル', '⏳ 未報告', '🗓 未来予定', '🔄 振替済']}
+grand_totals = {k: 0 for k in ['予定合計', '✅ 実施済', '❌ キャンセル', '⏳ 未報告', '🗓 未来予定']}
 for row in summary_rows:
     if row['生徒'] == '【小計】':
         for k in grand_totals:
