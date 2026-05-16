@@ -32,3 +32,8 @@ venv/
 
 # その他
 *.log
+
+# ローカル作業用スクリプト・バックアップ
+_tmp_*.py
+_migrate_*.py
+_backup_*.json

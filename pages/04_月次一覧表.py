@@ -37,9 +37,6 @@ STATUS_CONFIG = {
     'キャンセル':   {'symbol': '❌', 'bg': '#f8d7da', 'color': '#721c24', 'label': 'キャンセル'},
     '未報告':       {'symbol': '⏳', 'bg': '#fff3cd', 'color': '#856404', 'label': '未報告'},
     '予定':         {'symbol': '🗓',  'bg': '#e2e8f0', 'color': '#475569', 'label': '予定（未来）'},
-    '予定キャンセル': {'symbol': '✂',  'bg': '#fce4ec', 'color': '#9d174d', 'label': '予定キャンセル'},
-    '振替済':       {'symbol': '🔄', 'bg': '#e0f2fe', 'color': '#0369a1', 'label': '振替（未報告）'},
-    '振替報告済':   {'symbol': '✅🔄', 'bg': '#d4edda', 'color': '#155724', 'label': '振替（報告済）'},
     '─':           {'symbol': '─',  'bg': '#f8fafc', 'color': '#cbd5e1', 'label': 'レッスンなし'},
 }
 
@@ -56,10 +53,7 @@ today         = date.today()
 # ============================================================
 def get_status(sched):
     if sched['status'] == 'cancelled':
-        return '予定キャンセル'
-    if sched['status'] == 'rescheduled':
-        rec = match_record(sched, records_all)
-        return '振替報告済' if rec else '振替済'
+        return 'キャンセル'
     rec = match_record(sched, records_all)
     if rec:
         return rec['status']
@@ -128,12 +122,10 @@ for s in month_schedules:
     if st_val in status_counts:
         status_counts[st_val] += 1
 
-total_cancel = status_counts['キャンセル'] + status_counts['予定キャンセル']
-
 m1, m2, m3, m4, m5 = st.columns(5)
 m1.metric("📋 合計",       f"{len(month_schedules)} 件")
 m2.metric("✅ 実施済",     f"{status_counts['実施済']} 件")
-m3.metric("❌ キャンセル", f"{total_cancel} 件")
+m3.metric("❌ キャンセル", f"{status_counts['キャンセル']} 件")
 m4.metric("⏳ 未報告",     f"{status_counts['未報告']} 件")
 m5.metric("🗓 未来予定",   f"{status_counts['予定']} 件")
 
@@ -396,9 +388,7 @@ if _sel:
         if _d_sched:
             _sd_obj = date(*map(int, _sel_d.split('/')))
             if _d_sched['status'] == 'cancelled':
-                _st_val = '予定キャンセル'
-            elif _d_sched['status'] == 'rescheduled':
-                _st_val = '振替済'
+                _st_val = 'キャンセル'
             elif _sd_obj <= today:
                 _st_val = '未報告'
         st.info(f"実績データなし（ステータス: {_st_val}）")
@@ -508,8 +498,8 @@ for inst, stds in sum_columns_by_inst.items():
             '講師':          inst,
             '生徒':          std,
             '予定合計':      len(std_scheds),
-            '✅ 実施済':     cnts['実施済'] + cnts['振替済'] + cnts.get('振替報告済', 0),
-            '❌ キャンセル': cnts['キャンセル'] + cnts['予定キャンセル'],
+            '✅ 実施済':     cnts['実施済'],
+            '❌ キャンセル': cnts['キャンセル'],
             '⏳ 未報告':     cnts['未報告'],
             '🗓 未来予定':   cnts['予定'],
         }

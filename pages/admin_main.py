@@ -217,8 +217,8 @@ with tab_compare:
                 summary_rows.append({
                     '月': month, '講師': instructor_name, '生徒': student_name,
                     '予約数': len(valid_scheds), '実施': completed,
-                    'キャンセル（実績）': cancelled_actual,
-                    '予定キャンセル': len(cancelled_scheds), '未報告': unreported,
+                    'キャンセル': cancelled_actual + len(cancelled_scheds),
+                    '未報告': unreported,
                 })
 
         if summary_rows:
@@ -233,21 +233,18 @@ with tab_compare:
 
         st.divider()
         st.markdown("### 詳細一覧（予定ごとの実績）")
-        STATUS_S_ICON = {'scheduled': '🗓️', 'cancelled': '❌', 'rescheduled': '🔄'}
+        STATUS_S_ICON = {'scheduled': '🗓️', 'cancelled': '❌'}
 
         for sched in filtered_s:
             rec = match_record(sched, records_all)
             if sched['status'] == 'cancelled':
-                compare_status = '❌ 予定キャンセル'
-            elif sched['status'] == 'rescheduled':
-                compare_status = f"🔄 振替 → {sched.get('rescheduled_to','')}"
+                compare_status = '❌ キャンセル'
             elif rec:
-                compare_status = '✅ 実施済' if rec['status'] == '実施済' else '❌ キャンセル（実績）'
+                compare_status = '✅ 実施済' if rec['status'] == '実施済' else '❌ キャンセル'
             else:
                 compare_status = '⏳ 未報告'
-            type_tag = {'regular': '', 'makeup': ' 🔄振替', 'extra': ' ➕追加'}.get(sched.get('type', 'regular'), '')
             tstr = f" {sched['time']}" if sched.get('time') else ""
-            label = f"{compare_status}　**{sched['scheduled_date']}（{sched['weekday']}）{tstr}**　{sched['instructor']} / {sched['student']}{type_tag}"
+            label = f"{compare_status}　**{sched['scheduled_date']}（{sched['weekday']}）{tstr}**　{sched['instructor']} / {sched['student']}"
             with st.expander(label, expanded=False):
                 col_l, col_r = st.columns([1, 2])
                 with col_l:

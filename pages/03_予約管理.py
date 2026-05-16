@@ -1,8 +1,8 @@
 """
 予約管理ページ
   Tab 1: 定期スケジュール一括登録（複数曜日・時刻に対応）
-  Tab 2: 個別日程を登録（イレギュラー・振替・追加）
-  Tab 3: 予定の変更・キャンセル
+  Tab 2: 個別日程を登録
+  Tab 3: 予定の削除
 """
 
 import streamlit as st
@@ -36,7 +36,7 @@ def normalize_time(raw: str) -> str:
     return raw
 
 # ============================================================
-tab1, tab2, tab3 = st.tabs(["📆 定期スケジュール登録", "➕ 個別日程を登録", "✏️ 予定の変更・キャンセル"])
+tab1, tab2, tab3 = st.tabs(["📆 定期スケジュール登録", "➕ 個別日程を登録", "🗑️ 予定の削除"])
 
 # ===================================================================
 # Tab 1: 定期スケジュール 一括登録（複数曜日対応）
@@ -186,11 +186,11 @@ with tab1:
             st.rerun()
 
 # ===================================================================
-# Tab 2: 個別日程を登録（イレギュラー・振替・追加）
+# Tab 2: 個別日程を登録
 # ===================================================================
 with tab2:
     st.subheader("個別日程を登録")
-    st.caption("イレギュラーな日程・振替・追加レッスンなど、特定の日付を1件または複数件まとめて登録できます")
+    st.caption("特定の日付を1件または複数件まとめて登録できます（振替や追加レッスンもここから）")
 
     c1, c2 = st.columns(2)
     with c1:
@@ -201,15 +201,6 @@ with tab2:
             st.warning("この講師の生徒がまだ登録されていません。")
             st.stop()
         student2 = st.selectbox("生徒", _students2, key='t2_std')
-
-    lesson_type2 = st.radio(
-        "種別",
-        ['📅 イレギュラー（定期外の通常レッスン）', '🔄 振替レッスン', '➕ 追加レッスン'],
-        horizontal=True, key='t2_type'
-    )
-    is_makeup = lesson_type2.startswith('🔄')
-    is_extra  = lesson_type2.startswith('➕')
-    type_val  = 'makeup' if is_makeup else ('extra' if is_extra else 'regular')
 
     st.markdown("#### 日付と時刻")
     st.caption("日付を選んで「追加 →」を押すと下のリストに追加されます。複数日まとめて登録できます。")
@@ -250,13 +241,6 @@ with tab2:
 
     st.divider()
 
-    original_date2 = None
-    if is_makeup:
-        original_date2 = st.date_input(
-            "振替元の日付（キャンセルになった元の予定日）",
-            format="YYYY/MM/DD", key='t2_orig'
-        )
-
     note2 = st.text_input("メモ（任意）", placeholder="例: 祝日のため振替、急遽追加", key='t2_note')
 
     if st.button("登録する", type="primary", key='t2_save'):
@@ -265,7 +249,6 @@ with tab2:
         else:
             schedules = load_schedules()
             existing  = {s['id']: idx for idx, s in enumerate(schedules)}
-            orig_str  = original_date2.strftime('%Y/%m/%d') if is_makeup and original_date2 else None
 
             _locks_t2 = load_locks()
             added_c, overwrite_c, locked_c = 0, 0, 0
@@ -282,10 +265,10 @@ with tab2:
                     'scheduled_date': d['date'],
                     'weekday':        wd,
                     'time':           d['time'],
-                    'type':           type_val,
+                    'type':           'regular',
                     'status':         'scheduled',
                     'rescheduled_to': None,
-                    'original_date':  orig_str,
+                    'original_date':  None,
                     'series_id':      None,
                     'note':           note2,
                     'created_at':     datetime.now().strftime('%Y/%m/%d %H:%M'),
@@ -296,15 +279,6 @@ with tab2:
                 else:
                     schedules.append(entry)
                     added_c += 1
-
-            # 振替元ステータスを更新（振替先の最初の日付を設定）
-            if is_makeup and orig_str and st.session_state.t2_date_list:
-                orig_id = f"{instructor2}_{student2}_{orig_str}"
-                for s in schedules:
-                    if s['id'] == orig_id:
-                        s['status']         = 'rescheduled'
-                        s['rescheduled_to'] = st.session_state.t2_date_list[0]['date']
-                        break
 
             save_schedules(schedules)
 
@@ -317,10 +291,11 @@ with tab2:
             st.rerun()
 
 # ===================================================================
-# Tab 3: 予定の変更・キャンセル
+# Tab 3: 予定の削除
 # ===================================================================
 with tab3:
-    st.subheader("登録済み予定の変更・キャンセル")
+    st.subheader("登録済み予定の削除")
+    st.caption("入力ミスや事前のキャンセル分はここで削除してください。当日キャンセルは報告フォームから「❌ キャンセル」で対応できます。")
 
     schedules_all = load_schedules()
     if not schedules_all:
@@ -344,7 +319,6 @@ with tab3:
         STATUS_ICON = {
             'scheduled':   '🗓️ 予定',
             'cancelled':   '❌ キャンセル',
-            'rescheduled': '🔄 振替済',
         }
 
         for sched in filtered3:
@@ -352,78 +326,23 @@ with tab3:
             locked    = is_month_locked(month_key)
             icon      = STATUS_ICON.get(sched['status'], sched['status'])
             tstr      = f" {sched['time']}" if sched.get('time') else ""
-            type_tag  = {'regular': '', 'makeup': ' 🔄振替', 'extra': ' ➕追加'}.get(
-                sched.get('type', 'regular'), '')
-            rsched_to = f" → {sched['rescheduled_to']}" if sched.get('rescheduled_to') else ""
 
-            label = f"{icon}{type_tag}　**{sched['scheduled_date']}（{sched['weekday']}）{tstr}**　{sched['instructor']} / {sched['student']}{rsched_to}"
+            label = f"{icon}　**{sched['scheduled_date']}（{sched['weekday']}）{tstr}**　{sched['instructor']} / {sched['student']}"
 
-            _expanding = (
-                st.session_state.get(f"confirm_cancel_{sched['id']}") or
-                st.session_state.get(f"confirm_delete_{sched['id']}")
-            )
-            with st.expander(label, expanded=bool(_expanding)):
+            _expanding = bool(st.session_state.get(f"confirm_delete_{sched['id']}"))
+            with st.expander(label, expanded=_expanding):
                 if sched.get('note'):
                     st.caption(f"📝 {sched['note']}")
-                if sched.get('original_date'):
-                    st.caption(f"振替元: {sched['original_date']}")
                 st.caption(f"登録: {sched.get('created_at', '')}")
 
                 if locked:
-                    st.warning("🔒 ロック中のため変更できません")
-                elif sched['status'] == 'scheduled':
-                    ba, bb, bc = st.columns(3)
-                    cancel_key = f"cancel_{sched['id']}"
-                    delete_key = f"delete_{sched['id']}"
-                    if ba.button("❌ キャンセル", key=cancel_key):
-                        st.session_state[f"confirm_cancel_{sched['id']}"] = True
-                    if bc.button("🗑️ 削除", key=delete_key):
-                        st.session_state[f"confirm_delete_{sched['id']}"] = True
-
-                    if st.session_state.get(f"confirm_cancel_{sched['id']}"):
-                        note_cancel = st.text_input("キャンセル理由（任意）", key=f"note_cancel_{sched['id']}")
-                        cc1, cc2 = st.columns(2)
-                        if cc1.button("確定", key=f"ok_cancel_{sched['id']}", type="primary"):
-                            schedules_reload = load_schedules()
-                            for s in schedules_reload:
-                                if s['id'] == sched['id']:
-                                    s['status'] = 'cancelled'
-                                    s['note']   = note_cancel
-                                    break
-                            save_schedules(schedules_reload)
-                            st.session_state.pop(f"confirm_cancel_{sched['id']}", None)
+                    st.warning("🔒 ロック中のため削除できません")
+                else:
+                    if not st.session_state.get(f"confirm_delete_{sched['id']}"):
+                        if st.button("🗑️ 削除", key=f"delete_{sched['id']}"):
+                            st.session_state[f"confirm_delete_{sched['id']}"] = True
                             st.rerun()
-                        if cc2.button("やめる", key=f"no_cancel_{sched['id']}"):
-                            st.session_state.pop(f"confirm_cancel_{sched['id']}", None)
-                            st.rerun()
-
-                    if st.session_state.get(f"confirm_delete_{sched['id']}"):
-                        st.error("本当に削除しますか？（この操作は取り消せません）")
-                        cd1, cd2 = st.columns(2)
-                        if cd1.button("削除する", key=f"ok_delete_{sched['id']}", type="primary"):
-                            schedules_reload = load_schedules()
-                            schedules_reload = [s for s in schedules_reload if s['id'] != sched['id']]
-                            save_schedules(schedules_reload)
-                            st.session_state.pop(f"confirm_delete_{sched['id']}", None)
-                            st.rerun()
-                        if cd2.button("やめる", key=f"no_delete_{sched['id']}"):
-                            st.session_state.pop(f"confirm_delete_{sched['id']}", None)
-                            st.rerun()
-
-                elif sched['status'] == 'cancelled':
-                    col_unc, col_del = st.columns(2)
-                    if col_unc.button("↩️ キャンセルを取り消す", key=f"uncancel_{sched['id']}"):
-                        schedules_reload = load_schedules()
-                        for s in schedules_reload:
-                            if s['id'] == sched['id']:
-                                s['status'] = 'scheduled'
-                                break
-                        save_schedules(schedules_reload)
-                        st.rerun()
-                    if col_del.button("🗑️ 削除", key=f"delete_cancelled_{sched['id']}"):
-                        st.session_state[f"confirm_delete_{sched['id']}"] = True
-
-                    if st.session_state.get(f"confirm_delete_{sched['id']}"):
+                    else:
                         st.error("本当に削除しますか？（この操作は取り消せません）")
                         cd1, cd2 = st.columns(2)
                         if cd1.button("削除する", key=f"ok_delete_{sched['id']}", type="primary"):
