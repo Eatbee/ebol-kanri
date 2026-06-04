@@ -14,7 +14,7 @@ from datetime import date, datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import (
     INSTRUCTORS, STUDENTS_BY_INSTRUCTOR, WEEKDAY_MAP,
-    load_schedules, save_schedules, load_locks,
+    load_schedules, save_schedules, delete_schedule, load_locks,
     generate_recurring_dates, is_month_locked,
 )
 
@@ -346,9 +346,7 @@ with tab3:
                         st.error("本当に削除しますか？（この操作は取り消せません）")
                         cd1, cd2 = st.columns(2)
                         if cd1.button("削除する", key=f"ok_delete_{sched['id']}", type="primary"):
-                            schedules_reload = load_schedules()
-                            schedules_reload = [s for s in schedules_reload if s['id'] != sched['id']]
-                            save_schedules(schedules_reload)
+                            delete_schedule(sched['id'])
                             st.session_state.pop(f"confirm_delete_{sched['id']}", None)
                             st.rerun()
                         if cd2.button("やめる", key=f"no_delete_{sched['id']}"):
