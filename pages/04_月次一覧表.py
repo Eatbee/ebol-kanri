@@ -30,6 +30,7 @@ INSTRUCTOR_COLORS = {
     '星良':      {'header': '#c4b5fd', 'cell': '#ede9fe'},
     '春葉':      {'header': '#f9a8d4', 'cell': '#fce7f3'},
     'ミスコウ':  {'header': '#fde68a', 'cell': '#fef9c3'},
+    '結':        {'header': '#67e8f9', 'cell': '#cffafe'},
 }
 
 STATUS_CONFIG = {
