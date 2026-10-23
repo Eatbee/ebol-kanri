@@ -21,7 +21,7 @@ STUDENTS_BY_INSTRUCTOR = {
     '星良':      ['奈々果', '恵依菜', '映円', '美円', '知咲', '鈴華', '知緒'],
     '春葉':      ['咲', '彩'],
     'ミスコウ':  ['亘成', '初音', '七海'],
-    '結':        ['一貴'],
+    '結':        ['一貴', '紗那'],
 }
 # 重複を排除しつつ順序を保持（亘成のように複数講師に属する生徒に対応）
 ALL_STUDENTS = list(dict.fromkeys(s for sl in STUDENTS_BY_INSTRUCTOR.values() for s in sl))
